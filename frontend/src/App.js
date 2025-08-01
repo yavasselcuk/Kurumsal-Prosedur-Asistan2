@@ -59,11 +59,19 @@ function App() {
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    if (file && file.name.endsWith('.docx')) {
+    if (file && (file.name.endsWith('.docx') || file.name.endsWith('.doc'))) {
+      // Dosya boyutu kontrolü (10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        alert('Dosya boyutu çok büyük. Maksimum 10MB olmalıdır.');
+        event.target.value = '';
+        return;
+      }
+      
       setSelectedFile(file);
       setUploadProgress('');
     } else {
-      alert('Lütfen sadece .docx formatındaki dosyaları seçin.');
+      alert('Lütfen sadece .doc veya .docx formatındaki dosyaları seçin.');
       event.target.value = '';
     }
   };
