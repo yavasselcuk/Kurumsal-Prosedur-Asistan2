@@ -312,6 +312,21 @@ backend:
           agent: "testing"
           comment: "✅ FILE VALIDATION WORKING PERFECTLY! File format validation correctly rejects .txt files with appropriate Turkish error message: 'Sadece .doc ve .docx formatındaki dosyalar desteklenir'. System properly validates file extensions and provides clear guidance to users about supported formats."
 
+  - task: "ChatSession Pydantic Validation Fix"
+    implemented: true
+    working: false
+    file: "backend/server.py"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported Pydantic validation error: '1 validation error for ChatSession source_documents Field required'. This was preventing Q&A functionality from working."
+        - working: true
+          agent: "main"
+          comment: "Fixed ChatSession model by adding logic to extract source document filenames from retrieved chunks and include them in the ChatSession object. Modified /api/ask-question endpoint to populate source_documents field properly."
+
 frontend:
   - task: "Homepage and Navigation Test"
     implemented: true
