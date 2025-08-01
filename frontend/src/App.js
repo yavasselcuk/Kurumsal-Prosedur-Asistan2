@@ -873,6 +873,121 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
           </div>
         )}
       </div>
+
+      {/* Yeni Grup Modal */}
+      {showGroupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">📁 Yeni Grup Oluştur</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Grup Adı *
+                </label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="İnsan Kaynakları, Finans, vb."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Açıklama
+                </label>
+                <textarea
+                  value={newGroupDescription}
+                  onChange={(e) => setNewGroupDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="3"
+                  placeholder="Grubun amacını açıklayın..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Renk
+                </label>
+                <input
+                  type="color"
+                  value={newGroupColor}
+                  onChange={(e) => setNewGroupColor(e.target.value)}
+                  className="w-20 h-10 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowGroupModal(false);
+                  setNewGroupName('');
+                  setNewGroupDescription('');
+                  setNewGroupColor('#3b82f6');
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleCreateGroup}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Oluştur
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Doküman Taşıma Modal */}
+      {showMoveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              📂 Dokümanları Taşı ({selectedDocuments.length} adet)
+            </h3>
+            
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              <button
+                onClick={() => handleMoveDocuments(null)}
+                className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                📄 Gruplandırılmamış
+              </button>
+              
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => handleMoveDocuments(group.id)}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center space-x-2"
+                >
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: group.color }}
+                  ></div>
+                  <span>📁 {group.name} ({group.document_count})</span>
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowMoveModal(false);
+                  setSelectedDocuments([]);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
