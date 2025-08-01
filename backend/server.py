@@ -596,22 +596,79 @@ async def get_document_details(document_id: str):
 
 @api_router.delete("/documents/{document_id}")
 async def delete_document(document_id: str, background_tasks: BackgroundTasks):
-    """Doküman silme"""
+    """Doküman silme (gelişmiş)"""
     try:
+        # Önce dokümanı bul
+        document = await db.documents.find_one({"id": document_id})
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+        
+        filename = document.get("filename", "Bilinmeyen dosya")
+        chunk_count = document.get("chunk_count", len(document.get("chunks", [])))
+        
+        # Dokümanı sil
         result = await db.documents.delete_one({"id": document_id})
         
         if result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+            raise HTTPException(status_code=404, detail="Doküman silinemedi")
         
-        # FAISS indeksini güncelle
+        # Bu dokümanla ilgili chat geçmişini temizle (opsiyonel)
+        chat_cleanup_result = await db.chat_sessions.delete_many({
+            "context_chunks": {"$in": document.get("chunks", [])}
+        })
+        
+        # FAISS indeksini güncelle (background'da)
         background_tasks.add_task(update_faiss_index)
         
-        return {"message": "Doküman başarıyla silindi", "document_id": document_id}
+        return DocumentDeleteResponse(
+            message=f"'{filename}' dokümanı başarıyla silindi",
+            document_id=document_id,
+            deleted_chunks=chunk_count
+        )
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Doküman silinirken hata: {str(e)}")
+
+@api_router.delete("/documents")
+async def delete_all_documents(background_tasks: BackgroundTasks, confirm: bool = False):
+    """Tüm dokümanları sil (tehlikeli işlem)"""
+    try:
+        if not confirm:
+            raise HTTPException(
+                status_code=400, 
+                detail="Tüm dokümanları silmek için confirm=true parametresi gerekli"
+            )
+        
+        # Tüm dokümanları say
+        total_docs = await db.documents.count_documents({})
+        
+        if total_docs == 0:
+            return {"message": "Silinecek doküman bulunamadı", "deleted_count": 0}
+        
+        # Tüm dokümanları sil
+        delete_result = await db.documents.delete_many({})
+        
+        # Chat geçmişini de temizle
+        chat_result = await db.chat_sessions.delete_many({})
+        
+        # FAISS indeksini sıfırla
+        global faiss_index, document_chunks
+        faiss_index = None
+        document_chunks = []
+        
+        return {
+            "message": f"{delete_result.deleted_count} doküman ve {chat_result.deleted_count} chat kaydı silindi",
+            "deleted_documents": delete_result.deleted_count,
+            "deleted_chats": chat_result.deleted_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dokümanlar silinirken hata: {str(e)}")
 
 # Include the router in the main app
 app.include_router(api_router)
