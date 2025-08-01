@@ -922,48 +922,177 @@ sudo -u kpa pm2 scale kpa-backend 6
 
 ---
 
-## 🗃️ Veritabanı Konfigürasyonu
+## 🗃️ Veritabanı Konfigürasyonu (Ubuntu 24.04 LTS)
 
 ### MongoDB Güvenlik Ayarları
 
 ```bash
-# MongoDB admin kullanıcısı oluşturun:
+# MongoDB shell'e bağlanın
 mongosh
+
+# Veya authentication varsa:
+# mongosh --username admin --password --authenticationDatabase admin
 ```
 
 ```javascript
+// MongoDB shell komutları
+
+// 1. Admin kullanıcısı oluşturun
 use admin
 db.createUser({
   user: "kpa_admin",
-  pwd: "GUVENLI_SIFRE_BURAYA",
-  roles: ["userAdminAnyDatabase", "dbAdminAnyDatabase", "readWriteAnyDatabase"]
+  pwd: passwordPrompt(), // Güvenli şifre girin
+  roles: [
+    "userAdminAnyDatabase", 
+    "dbAdminAnyDatabase", 
+    "readWriteAnyDatabase",
+    "clusterAdmin"
+  ]
 })
 
+// 2. Uygulama veritabanı oluşturun
 use kpa_production
 db.createUser({
   user: "kpa_user", 
-  pwd: "UYGULAMA_SIFRESI_BURAYA",
+  pwd: passwordPrompt(), // Uygulama şifresi girin
   roles: ["readWrite"]
 })
+
+// 3. İndeksleri oluşturun (performans için)
+// Documents collection
+db.documents.createIndex({ "filename": 1 })
+db.documents.createIndex({ "created_at": -1 })
+db.documents.createIndex({ "embeddings_created": 1 })
+db.documents.createIndex({ "id": 1 }, { unique: true })
+
+// Chat sessions collection
+db.chat_sessions.createIndex({ "session_id": 1, "created_at": -1 })
+db.chat_sessions.createIndex({ "created_at": -1 })
+
+// TTL indeks (30 gün sonra chat geçmişini sil)
+db.chat_sessions.createIndex(
+  { "created_at": 1 }, 
+  { expireAfterSeconds: 2592000 }
+)
+
+// Metin arama indeksi (opsiyonel)
+db.documents.createIndex({ 
+  "filename": "text", 
+  "content": "text" 
+}, { 
+  default_language: "turkish",
+  name: "document_text_search" 
+})
+
+// Veritabanı istatistiklerini görüntüleyin
+db.stats()
+quit()
 ```
 
+### MongoDB Authentication Aktifleştirme (Ubuntu 24.04)
+
 ```bash
-# MongoDB authentication aktifleştirin:
+# MongoDB konfigürasyon dosyasını düzenleyin
 sudo nano /etc/mongod.conf
 ```
 
 ```yaml
-# /etc/mongod.conf
+# /etc/mongod.conf - Ubuntu 24.04 için güvenlik optimizasyonu
+storage:
+  dbPath: /var/lib/mongodb
+  journal:
+    enabled: true
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 2  # Sunucunuzun RAM'inin %50'si
+      directoryForIndexes: true
+    collectionConfig:
+      blockCompressor: snappy
+    indexConfig:
+      prefixCompression: true
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb/mongod.log
+  logRotate: reopen
+  component:
+    accessControl:
+      verbosity: 1
+    command:
+      verbosity: 1
+
+net:
+  port: 27017
+  bindIp: 127.0.0.1  # Sadece localhost erişimi
+  maxIncomingConnections: 100
+  compression:
+    compressors: snappy,zstd
+
+processManagement:
+  timeZoneInfo: /usr/share/zoneinfo
+  fork: true
+  pidFilePath: /var/run/mongodb/mongod.pid
+
+# Güvenlik ayarları
 security:
   authorization: enabled
+  javascriptEnabled: false  # JavaScript execution'ı kapat
+
+# Performans ayarları
+operationProfiling:
+  slowOpThresholdMs: 100
+  mode: slowOp
+
+# Replikasyon (gelecek için hazırlık)
+#replication:
+#  replSetName: "kpa-replica-set"
+
+# Sharding (büyük veri için)
+#sharding:
+#  clusterRole: shardsvr
+```
+
+#### MongoDB Servisini Yeniden Başlatma
+
+```bash
+# Konfigürasyonu test edin
+sudo mongod --config /etc/mongod.conf --fork --logpath /tmp/mongod-test.log
+sudo pkill mongod
+
+# MongoDB'yi yeniden başlatın
+sudo systemctl restart mongod
+
+# Servis durumunu kontrol edin
+sudo systemctl status mongod
+
+# Authentication testi
+mongosh --username kpa_admin --password --authenticationDatabase admin
+
+# Connection string test
+mongosh "mongodb://kpa_user:UYGULAMA_SIFRESI@localhost:27017/kpa_production"
+```
+
+### Backend .env Dosyasını Güncelleme
+
+```bash
+# backend/.env dosyasını authentication bilgileri ile güncelleyin
+nano /opt/kpa/backend/.env
 ```
 
 ```bash
-# MongoDB'yi yeniden başlatın:
-sudo systemctl restart mongod
-
-# .env dosyasını güncelleyin:
+# /opt/kpa/backend/.env - Authentication ile
 MONGO_URL="mongodb://kpa_user:UYGULAMA_SIFRESI_BURAYA@localhost:27017/kpa_production"
+DB_NAME="kpa_production"
+GEMINI_API_KEY="your-gemini-api-key-here"
+
+# Connection pool ayarları
+MONGO_MAX_POOL_SIZE="20"
+MONGO_MIN_POOL_SIZE="5"
+MONGO_MAX_IDLE_TIME_MS="30000"
+MONGO_SERVER_SELECTION_TIMEOUT_MS="5000"
+
+# Diğer ayarlar...
 ```
 
 ---
