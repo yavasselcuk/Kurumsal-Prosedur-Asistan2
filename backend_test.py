@@ -296,8 +296,8 @@ class KPABackendTester:
                 None
             )
 
-    def test_document_delete_response_structure(self):
-        """Test DELETE /api/documents/{id} enhanced response structure"""
+    def test_document_delete_functionality(self):
+        """Test DELETE /api/documents/{id} - PRIORITY: User reports deletion not working"""
         try:
             # First, try to get a document ID (if any exist)
             docs_response = self.session.get(f"{self.base_url}/documents")
@@ -309,6 +309,9 @@ class KPABackendTester:
                 if documents:
                     # Test delete with existing document
                     doc_id = documents[0]["id"]
+                    filename = documents[0].get("filename", "Unknown")
+                    
+                    print(f"   Testing deletion of document: {filename} (ID: {doc_id})")
                     delete_response = self.session.delete(f"{self.base_url}/documents/{doc_id}")
                     
                     if delete_response.status_code == 200:
@@ -317,58 +320,87 @@ class KPABackendTester:
                         missing_fields = [field for field in required_fields if field not in delete_data]
                         
                         if not missing_fields:
-                            self.log_test(
-                                "Document Delete Response Structure",
-                                True,
-                                f"Enhanced delete response structure validated. Fields: {list(delete_data.keys())}",
-                                delete_data
-                            )
+                            # Verify document was actually deleted
+                            verify_response = self.session.get(f"{self.base_url}/documents")
+                            if verify_response.status_code == 200:
+                                verify_data = verify_response.json()
+                                remaining_docs = verify_data.get("documents", [])
+                                doc_still_exists = any(doc["id"] == doc_id for doc in remaining_docs)
+                                
+                                if not doc_still_exists:
+                                    self.log_test(
+                                        "Document Delete Functionality - PRIORITY",
+                                        True,
+                                        f"✅ DELETION WORKING! Document '{filename}' successfully deleted. Response: {delete_data['message']}, Deleted chunks: {delete_data['deleted_chunks']}",
+                                        delete_data
+                                    )
+                                else:
+                                    self.log_test(
+                                        "Document Delete Functionality - PRIORITY",
+                                        False,
+                                        f"❌ DELETION FAILED! Document still exists after delete request. API returned success but document not removed.",
+                                        delete_data
+                                    )
+                            else:
+                                self.log_test(
+                                    "Document Delete Functionality - PRIORITY",
+                                    True,
+                                    f"✅ Delete response structure correct, but couldn't verify removal: {delete_data['message']}",
+                                    delete_data
+                                )
                         else:
                             self.log_test(
-                                "Document Delete Response Structure",
+                                "Document Delete Functionality - PRIORITY",
                                 False,
-                                f"Delete response missing required fields: {missing_fields}",
+                                f"❌ Delete response missing required fields: {missing_fields}",
                                 delete_data
                             )
+                    elif delete_response.status_code == 404:
+                        self.log_test(
+                            "Document Delete Functionality - PRIORITY",
+                            False,
+                            f"❌ Document not found (404). Document may have been deleted already or ID invalid: {doc_id}",
+                            delete_response.text
+                        )
                     else:
                         self.log_test(
-                            "Document Delete Response Structure",
+                            "Document Delete Functionality - PRIORITY",
                             False,
-                            f"Delete request failed with HTTP {delete_response.status_code}",
+                            f"❌ DELETION FAILED! HTTP {delete_response.status_code}: {delete_response.text}",
                             delete_response.text
                         )
                 else:
-                    # Test delete with non-existent document to check error structure
-                    fake_id = "non-existent-id"
+                    # Test delete with non-existent document to check error handling
+                    fake_id = "non-existent-document-id-12345"
                     delete_response = self.session.delete(f"{self.base_url}/documents/{fake_id}")
                     
                     if delete_response.status_code == 404:
                         self.log_test(
-                            "Document Delete Response Structure",
+                            "Document Delete Functionality - PRIORITY",
                             True,
-                            "Delete endpoint correctly returns 404 for non-existent document (no documents to test actual delete)",
+                            "✅ Delete endpoint correctly returns 404 for non-existent document (no documents available to test actual deletion)",
                             None
                         )
                     else:
                         self.log_test(
-                            "Document Delete Response Structure",
+                            "Document Delete Functionality - PRIORITY",
                             False,
-                            f"Expected 404 for non-existent document, got {delete_response.status_code}",
+                            f"❌ Expected 404 for non-existent document, got {delete_response.status_code}",
                             delete_response.text
                         )
             else:
                 self.log_test(
-                    "Document Delete Response Structure",
+                    "Document Delete Functionality - PRIORITY",
                     False,
-                    f"Could not retrieve documents list to test delete: HTTP {docs_response.status_code}",
+                    f"❌ Could not retrieve documents list to test delete: HTTP {docs_response.status_code}",
                     docs_response.text
                 )
                 
         except Exception as e:
             self.log_test(
-                "Document Delete Response Structure",
+                "Document Delete Functionality - PRIORITY",
                 False,
-                f"Connection error during delete test: {str(e)}",
+                f"❌ Connection error during delete test: {str(e)}",
                 None
             )
 
