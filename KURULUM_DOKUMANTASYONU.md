@@ -1097,20 +1097,43 @@ MONGO_SERVER_SELECTION_TIMEOUT_MS="5000"
 
 ---
 
-## 🔍 Monitoring ve Loglama
+## 🔍 Monitoring ve Loglama (Ubuntu 24.04 LTS)
 
-### Log Konfigürasyonu
+### Sistem Monitoring Kurulumu
 
 ```bash
-# Log dizinleri oluşturun:
-sudo mkdir -p /var/log/kpa
-sudo chown www-data:www-data /var/log/kpa
+# Sistem monitoring araçları kurulumu
+sudo apt update
+sudo apt install -y htop iotop nethogs ncdu tree
 
-# Logrotate konfigürasyonu:
+# Log analiz araçları
+sudo apt install -y multitail ccze lnav
+
+# Performance monitoring
+sudo apt install -y sysstat dstat glances
+
+# Disk ve network monitoring
+sudo apt install -y iftop vnstat
+
+# Vnstat konfigürasyonu
+sudo systemctl enable vnstat
+sudo systemctl start vnstat
+```
+
+### Log Konfigürasyonu ve Yönetimi
+
+```bash
+# Log dizinleri oluşturun
+sudo mkdir -p /var/log/kpa/{nginx,mongodb,backend,frontend}
+sudo chown -R kpa:kpa /var/log/kpa
+sudo chmod -R 755 /var/log/kpa
+
+# Logrotate konfigürasyonu
 sudo nano /etc/logrotate.d/kpa
 ```
 
 ```bash
+# /etc/logrotate.d/kpa
 /var/log/kpa/*.log {
     daily
     rotate 30
@@ -1118,8 +1141,205 @@ sudo nano /etc/logrotate.d/kpa
     delaycompress
     missingok
     notifempty
-    create 644 www-data www-data
+    create 644 kpa kpa
+    sharedscripts
+    postrotate
+        # PM2 logları için
+        if [ -f /home/kpa/.pm2/pm2.pid ]; then
+            sudo -u kpa pm2 reloadLogs
+        fi
+        # Nginx reload
+        if [ -f /var/run/nginx.pid ]; then
+            /usr/sbin/nginx -s reopen
+        fi
+    endscript
 }
+
+/var/log/nginx/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 www-data www-data
+    sharedscripts
+    postrotate
+        if [ -f /var/run/nginx.pid ]; then
+            /usr/sbin/nginx -s reopen
+        fi
+    endscript
+}
+```
+
+### Health Check Script'leri
+
+```bash
+# Health check script oluşturun
+sudo nano /opt/kpa/scripts/health-check.sh
+```
+
+```bash
+#!/bin/bash
+# /opt/kpa/scripts/health-check.sh - Ubuntu 24.04 KPA Health Check
+
+# Renk kodları
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+LOG_FILE="/var/log/kpa/health-check.log"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Log function
+log_message() {
+    echo -e "$1" | tee -a "$LOG_FILE"
+}
+
+# Check services
+check_service() {
+    if systemctl is-active --quiet "$1"; then
+        log_message "${GREEN}[OK]${NC} $1 is running"
+        return 0
+    else
+        log_message "${RED}[ERROR]${NC} $1 is not running"
+        return 1
+    fi
+}
+
+# Check port
+check_port() {
+    if nc -z localhost "$1" 2>/dev/null; then
+        log_message "${GREEN}[OK]${NC} Port $1 is open"
+        return 0
+    else
+        log_message "${RED}[ERROR]${NC} Port $1 is not accessible"
+        return 1
+    fi
+}
+
+# Check URL
+check_url() {
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$1" --max-time 10)
+    if [ "$HTTP_CODE" -eq 200 ]; then
+        log_message "${GREEN}[OK]${NC} $1 returned HTTP $HTTP_CODE"
+        return 0
+    else
+        log_message "${RED}[ERROR]${NC} $1 returned HTTP $HTTP_CODE"
+        return 1
+    fi
+}
+
+# Main health check
+main() {
+    log_message "\n=== KPA Health Check - $TIMESTAMP ==="
+    
+    # System resources
+    MEMORY_USAGE=$(free | grep Mem | awk '{printf("%.1f", $3/$2 * 100.0)}')
+    DISK_USAGE=$(df / | awk 'NR==2{printf "%s", $5}' | sed 's/%//')
+    LOAD_AVG=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//')
+    
+    log_message "Memory Usage: ${MEMORY_USAGE}%"
+    log_message "Disk Usage: ${DISK_USAGE}%"
+    log_message "Load Average: ${LOAD_AVG}"
+    
+    # Warning thresholds
+    if (( $(echo "$MEMORY_USAGE > 80" | bc -l) )); then
+        log_message "${YELLOW}[WARNING]${NC} High memory usage: ${MEMORY_USAGE}%"
+    fi
+    
+    if [ "$DISK_USAGE" -gt 80 ]; then
+        log_message "${YELLOW}[WARNING]${NC} High disk usage: ${DISK_USAGE}%"
+    fi
+    
+    # Service checks
+    log_message "\n--- Service Status ---"
+    check_service "mongod"
+    check_service "nginx"
+    check_service "kpa-backend" || {
+        # PM2 alternatifi kontrol et
+        if sudo -u kpa pm2 describe kpa-backend >/dev/null 2>&1; then
+            PM2_STATUS=$(sudo -u kpa pm2 describe kpa-backend | grep "status" | awk '{print $4}')
+            if [ "$PM2_STATUS" = "online" ]; then
+                log_message "${GREEN}[OK]${NC} kpa-backend (PM2) is running"
+            else
+                log_message "${RED}[ERROR]${NC} kpa-backend (PM2) status: $PM2_STATUS"
+            fi
+        fi
+    }
+    
+    # Port checks
+    log_message "\n--- Port Status ---"
+    check_port "27017"  # MongoDB
+    check_port "8001"   # Backend
+    check_port "80"     # Nginx HTTP
+    check_port "443"    # Nginx HTTPS (if SSL enabled)
+    
+    # Application health checks
+    log_message "\n--- Application Health ---"
+    check_url "http://localhost:8001/api/status"
+    check_url "http://localhost/health"
+    
+    # MongoDB specific checks
+    MONGO_STATUS=$(sudo -u kpa mongosh --quiet --eval "db.adminCommand('ping').ok" kpa_production 2>/dev/null)
+    if [ "$MONGO_STATUS" = "1" ]; then
+        log_message "${GREEN}[OK]${NC} MongoDB ping successful"
+    else
+        log_message "${RED}[ERROR]${NC} MongoDB ping failed"
+    fi
+    
+    # Log file sizes
+    log_message "\n--- Log File Sizes ---"
+    find /var/log/kpa -name "*.log" -exec du -sh {} \; | while read size file; do
+        log_message "Log size: $file - $size"
+    done
+    
+    log_message "=== Health Check Completed ===\n"
+}
+
+# Create log directory if not exists
+mkdir -p "$(dirname "$LOG_FILE")"
+
+# Run main function
+main
+
+# Exit with error code if any critical service is down
+if ! systemctl is-active --quiet mongod || ! systemctl is-active --quiet nginx; then
+    exit 1
+fi
+```
+
+```bash
+# Script'i executable yapın
+sudo chmod +x /opt/kpa/scripts/health-check.sh
+sudo mkdir -p /opt/kpa/scripts
+
+# Test edin
+sudo /opt/kpa/scripts/health-check.sh
+```
+
+### Monitoring Dashboard (Grafana + Prometheus - Opsiyonel)
+
+```bash
+# Docker ile monitoring stack kurulumu
+sudo docker run -d \
+  --name=grafana \
+  -p 3000:3000 \
+  -v grafana-storage:/var/lib/grafana \
+  grafana/grafana:latest
+
+# Prometheus node exporter
+sudo docker run -d \
+  --name=node-exporter \
+  -p 9100:9100 \
+  --pid=host \
+  --restart=unless-stopped \
+  prom/node-exporter:latest
+
+# Access
+echo "Grafana: http://localhost:3000 (admin/admin)"
+echo "Node Exporter: http://localhost:9100/metrics"
 ```
 
 ### Health Check Endpoint'i
