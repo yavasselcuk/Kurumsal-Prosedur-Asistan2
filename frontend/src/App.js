@@ -205,6 +205,11 @@ function App() {
 
     const formData = new FormData();
     formData.append('file', selectedFile);
+    
+    // Grup seçildiyse ekle
+    if (selectedGroup && selectedGroup !== 'all' && selectedGroup !== 'ungrouped') {
+      formData.append('group_id', selectedGroup);
+    }
 
     try {
       setUploadProgress('Doküman yükleniyor...');
@@ -228,6 +233,7 @@ function App() {
         setTimeout(() => {
           fetchDocuments();
           fetchSystemStatus();
+          fetchGroups();
         }, 2000);
       } else {
         setUploadProgress(`❌ Hata: ${data.detail}`);
