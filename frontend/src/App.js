@@ -59,7 +59,8 @@ function App() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/documents`);
+      const groupFilter = selectedGroup === 'all' ? '' : `?group_id=${selectedGroup}`;
+      const response = await fetch(`${backendUrl}/api/documents${groupFilter}`);
       const data = await response.json();
       setDocuments(data.documents || []);
       
@@ -70,6 +71,110 @@ function App() {
       }
     } catch (error) {
       console.error('Dokümanlar alınamadı:', error);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/groups`);
+      const data = await response.json();
+      setGroups(data.groups || []);
+    } catch (error) {
+      console.error('Gruplar alınamadı:', error);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) {
+      alert('Grup adı boş olamaz.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/groups`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newGroupName,
+          description: newGroupDescription,
+          color: newGroupColor
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setNewGroupName('');
+        setNewGroupDescription('');
+        setNewGroupColor('#3b82f6');
+        setShowGroupModal(false);
+        fetchGroups();
+        alert(data.message);
+      } else {
+        alert(`Hata: ${data.detail}`);
+      }
+    } catch (error) {
+      alert(`Grup oluşturma hatası: ${error.message}`);
+    }
+  };
+
+  const handleMoveDocuments = async (targetGroupId) => {
+    if (selectedDocuments.length === 0) {
+      alert('Lütfen taşınacak dokümanları seçin.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/documents/move`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_ids: selectedDocuments,
+          group_id: targetGroupId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSelectedDocuments([]);
+        setShowMoveModal(false);
+        fetchDocuments();
+        fetchGroups();
+        alert(data.message);
+      } else {
+        alert(`Hata: ${data.detail}`);
+      }
+    } catch (error) {
+      alert(`Taşıma hatası: ${error.message}`);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId, groupName) => {
+    if (!window.confirm(`'${groupName}' grubunu silmek istediğinizden emin misiniz? Gruptaki dokümanlar gruplandırılmamış duruma getirilecek.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/groups/${groupId}?move_documents=true`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        fetchGroups();
+        fetchDocuments();
+        alert(data.message);
+      } else {
+        alert(`Hata: ${data.detail}`);
+      }
+    } catch (error) {
+      alert(`Grup silme hatası: ${error.message}`);
     }
   };
 
