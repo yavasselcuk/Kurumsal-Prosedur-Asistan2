@@ -30,6 +30,8 @@ function App() {
     fetchSystemStatus();
     // Dokümanları al
     fetchDocuments();
+    // Grupları al
+    fetchGroups();
   }, []);
 
   useEffect(() => {
