@@ -320,18 +320,24 @@ function App() {
     }
 
     try {
+      console.log('Deleting document:', documentId);
+      console.log('Backend URL:', backendUrl);
+      
       const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
         method: 'DELETE',
       });
 
+      console.log('Delete response status:', response.status);
       const data = await response.json();
+      console.log('Delete response data:', data);
 
       if (response.ok) {
-        fetchDocuments();
-        fetchSystemStatus();
+        await fetchDocuments();
+        await fetchSystemStatus();
         alert(data.message || 'Doküman başarıyla silindi.');
       } else {
-        alert(`Hata: ${data.detail || data.message}`);
+        console.error('Delete failed:', data);
+        alert(`Hata: ${data.detail || data.message || 'Bilinmeyen hata'}`);
       }
     } catch (error) {
       console.error('Delete error:', error);
