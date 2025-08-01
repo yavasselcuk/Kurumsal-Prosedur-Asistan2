@@ -193,16 +193,17 @@ function App() {
         method: 'DELETE',
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         fetchDocuments();
         fetchSystemStatus();
         alert(data.message || 'Doküman başarıyla silindi.');
       } else {
-        const data = await response.json();
-        alert(`Hata: ${data.detail}`);
+        alert(`Hata: ${data.detail || data.message}`);
       }
     } catch (error) {
+      console.error('Delete error:', error);
       alert(`Silme hatası: ${error.message}`);
     }
   };
