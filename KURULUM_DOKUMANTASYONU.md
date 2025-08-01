@@ -421,57 +421,188 @@ REACT_APP_ENV=production
 
 ---
 
-## 🌐 Web Sunucusu Konfigürasyonu
+## 🌐 Web Sunucusu Konfigürasyonu (Ubuntu 24.04 LTS)
 
-### Nginx ile Reverse Proxy (Önerilen)
+### Nginx ile Reverse Proxy (Ubuntu 24.04)
 
 ```bash
-# Nginx kurulumu:
-sudo apt install nginx
+# Nginx kurulumu
+sudo apt update
+sudo apt install -y nginx
 
-# Site konfigürasyonu:
+# Nginx versiyonunu kontrol edin
+nginx -v  # nginx/1.24.x
+
+# Nginx servisini başlatın
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+# Nginx durumunu kontrol edin
+sudo systemctl status nginx
+
+# Firewall ayarları
+sudo ufw allow 'Nginx Full'
+sudo ufw status
+
+# Site konfigürasyonu oluşturun
 sudo nano /etc/nginx/sites-available/kpa
 ```
 
+#### Nginx Konfigürasyon Dosyası (Ubuntu 24.04 Optimized)
+
 ```nginx
+# /etc/nginx/sites-available/kpa
 server {
     listen 80;
-    server_name [DOMAIN-ADINIZ];
+    listen [::]:80;
+    server_name [DOMAIN-ADINIZ] www.[DOMAIN-ADINIZ];
     
+    # Security headers (Ubuntu 24.04 için güncellenmiş)
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.google.com" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    
+    # Modern gzip konfigürasyonu
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_proxied any;
+    gzip_disable "msie6";
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/javascript
+        application/xml+rss
+        application/json
+        application/xml
+        image/svg+xml;
+
+    # Brotli compression (Ubuntu 24.04'te mevcut)
+    brotli on;
+    brotli_comp_level 4;
+    brotli_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
     # Frontend static files
     location / {
-        root /path/to/kpa-project/frontend/build;
+        root /opt/kpa/frontend/build;
         try_files $uri $uri/ /index.html;
+        index index.html index.htm;
         
-        # Cache static assets
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        # Modern cache headers
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
+            add_header X-Content-Type-Options nosniff;
+            access_log off;
+        }
+        
+        # HTML files cache
+        location ~* \.(html)$ {
+            expires 1h;
+            add_header Cache-Control "public, must-revalidate";
         }
     }
     
-    # Backend API
+    # Backend API reverse proxy
     location /api {
         proxy_pass http://127.0.0.1:8001;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
         
-        # File upload settings
-        client_max_body_size 50M;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
+        # CORS headers
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
+        
+        # Handle preflight requests
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization" always;
+            add_header Access-Control-Max-Age 1728000;
+            add_header Content-Type 'text/plain charset=UTF-8';
+            add_header Content-Length 0;
+            return 204;
+        }
+        
+        # File upload ve timeout ayarları
+        client_max_body_size 100M;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Nginx status (admin için)
+    location /nginx_status {
+        stub_status on;
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+    }
+
+    # Security: deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Security: deny access to backup and temporary files
+    location ~* \.(bak|backup|old|tmp|temp|log)$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Robots.txt
+    location = /robots.txt {
+        allow all;
+        log_not_found off;
+        access_log off;
     }
 }
 ```
 
+#### Nginx Site Aktivasyonu ve Test
+
 ```bash
-# Site'ı aktifleştir:
-sudo ln -s /etc/nginx/sites-available/kpa /etc/nginx/sites-enabled/
+# Konfigürasyon dosyasını test edin
 sudo nginx -t
+
+# Site'ı aktifleştirin
+sudo ln -s /etc/nginx/sites-available/kpa /etc/nginx/sites-enabled/
+
+# Default site'ı deaktive edin (opsiyonel)
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Nginx'i yeniden yükleyin
 sudo systemctl reload nginx
+
+# Nginx durumunu kontrol edin
+sudo systemctl status nginx
+
+# Log dosyalarını kontrol edin
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
 ```
 
 ### SSL Sertifikası (Let's Encrypt)
