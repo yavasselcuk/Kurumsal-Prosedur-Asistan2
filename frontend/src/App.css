@@ -89,6 +89,22 @@
   background-color: #f8fafc;
 }
 
+/* Long filename handling */
+.document-filename {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.3;
+}
+
+.document-card {
+  min-height: 200px; /* Minimum height for consistency */
+}
+
+.document-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .chat-container {
@@ -97,6 +113,20 @@
   
   .sidebar {
     order: -1;
+  }
+  
+  .document-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  
+  .document-card {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .document-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -150,6 +180,32 @@
 /* Custom transitions */
 .transition-all {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Long text handling utilities */
+.text-ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-ellipsis-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Group badge improvements */
+.group-badge {
+  max-width: 120px;
+}
+
+.group-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Dark mode support (optional) */
