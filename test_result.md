@@ -318,11 +318,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Root API Endpoint Test"
-    - "System Status Endpoint Test"
-    - "Documents List Endpoint Test"
+    - "Homepage and Navigation Test"
+    - "System Status Display"
+    - "Tab Navigation System"
+    - "Document Management Interface"
+    - "Chat Interface and Q&A System"
   stuck_tasks: []
-  test_all: false
+  test_all: true
   test_priority: "high_first"
 
 agent_communication:
