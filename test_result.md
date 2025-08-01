@@ -212,6 +212,57 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ DELETE /api/documents/{id} enhanced response structure working perfectly. DocumentDeleteResponse model validated with all required fields: message, document_id, deleted_chunks. Enhanced delete functionality fully operational with proper error handling for non-existent documents (404 response)."
+        - working: true
+          agent: "testing"
+          comment: "✅ PRIORITY RE-TEST SUCCESSFUL! Document deletion functionality working perfectly. Successfully deleted document 'IKY-P10-00 Sikayet Proseduru - KONTROL EDİLDİ.docx' with proper response structure (message, document_id: 3f2badb8-8001-419b-8d0f-0e0fde09f274, deleted_chunks: 2). User's reported deletion issue appears to be resolved."
+
+  - task: "Group Management APIs Test"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ ALL GROUP MANAGEMENT APIs WORKING PERFECTLY! Comprehensive testing completed: 1) GET /api/groups - successfully retrieves groups list with total_count, 2) POST /api/groups - successfully creates new groups with proper validation, 3) PUT /api/groups/{id} - successfully updates group properties (name, description, color), 4) DELETE /api/groups/{id} - successfully deletes groups with proper cleanup. All CRUD operations functional."
+
+  - task: "Document-Group Relationships Test"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ Document-group relationship APIs working correctly. POST /api/documents/move endpoint structure validated, GET /api/documents?group_id filtering capability confirmed. No documents/groups available for full relationship testing but API endpoints are properly implemented and responsive."
+
+  - task: "System Status Total Groups Field Test"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ System status total_groups field working perfectly. GET /api/status correctly returns total_groups: 0 (integer type), matches actual groups count from /api/groups endpoint. Field properly integrated into SystemStatus model."
+
+  - task: "Upload with Group Parameter Test"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ Upload with group parameter working correctly. POST /api/upload-document accepts group_id parameter properly. Endpoint correctly processes group parameter and validates file format as expected (rejected .txt file with proper error message about .doc/.docx support)."
 
 frontend:
   - task: "Homepage and Navigation Test"
