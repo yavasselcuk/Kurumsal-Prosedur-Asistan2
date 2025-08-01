@@ -81,19 +81,128 @@ brew install python@3.11 node mongodb/brew/mongodb-community git
 
 ### 3. MongoDB Kurulumu
 
-```bash
-# Ubuntu için MongoDB Community Edition:
-wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-sudo apt-get update
-sudo apt-get install -y mongodb-org
+#### Ubuntu 24.04 LTS için MongoDB 7.0 Kurulumu
 
-# MongoDB servisini başlat:
+```bash
+# MongoDB GPG anahtarını import edin
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+   sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+   --dearmor
+
+# MongoDB repository ekleyin (Ubuntu 24.04 "noble" için)
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+# Paket listesini güncelleyin
+sudo apt update
+
+# MongoDB Community Edition'ı kurun
+sudo apt install -y mongodb-org
+
+# MongoDB servisini başlatın ve enable edin
 sudo systemctl start mongod
 sudo systemctl enable mongod
 
-# MongoDB bağlantısını test et:
+# MongoDB servis durumunu kontrol edin
+sudo systemctl status mongod
+
+# MongoDB bağlantısını test edin
 mongosh --eval "db.adminCommand('ismaster')"
+
+# MongoDB versiyonunu kontrol edin
+mongosh --eval "db.version()"  # 7.0.x çıktısı beklenir
+```
+
+#### Firewall Yapılandırması (Ubuntu 24.04)
+
+```bash
+# UFW firewall'ı aktifleştirin
+sudo ufw enable
+
+# SSH, HTTP, HTTPS portlarını açın
+sudo ufw allow ssh
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# MongoDB ve backend portlarını yerel ağla sınırlayın (güvenlik için)
+sudo ufw allow from 127.0.0.1 to any port 27017
+sudo ufw allow from 127.0.0.1 to any port 8001
+
+# UFW durumunu kontrol edin
+sudo ufw status verbose
+```
+
+#### MongoDB Yapılandırma Dosyası (Ubuntu 24.04)
+
+```bash
+# MongoDB konfigürasyon dosyasını düzenleyin
+sudo nano /etc/mongod.conf
+```
+
+```yaml
+# /etc/mongod.conf - Ubuntu 24.04 için optimize edilmiş
+storage:
+  dbPath: /var/lib/mongodb
+  journal:
+    enabled: true
+
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb/mongod.log
+  logRotate: reopen
+
+net:
+  port: 27017
+  bindIp: 127.0.0.1
+
+processManagement:
+  timeZoneInfo: /usr/share/zoneinfo
+
+# Güvenlik ayarları (production için)
+security:
+  authorization: enabled
+
+# Memory ve performans ayarları
+storage:
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 2  # RAM'inizin yarısı kadar
+    collectionConfig:
+      blockCompressor: snappy
+    indexConfig:
+      prefixCompression: true
+```
+
+#### Diğer Dağıtımlar için MongoDB
+
+```bash
+# Ubuntu 22.04 LTS için:
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+
+# CentOS 9 / RHEL 9 için:
+sudo tee /etc/yum.repos.d/mongodb-org-7.0.repo << 'EOF'
+[mongodb-org-7.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/7.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://www.mongodb.org/static/pgp/server-7.0.asc
+EOF
+
+sudo yum install -y mongodb-org
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Docker ile MongoDB (platform bağımsız):
+docker run -d --name mongodb \
+  -p 27017:27017 \
+  -v mongodb_data:/data/db \
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=password123 \
+  mongo:7.0
 ```
 
 ---
