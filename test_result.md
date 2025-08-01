@@ -451,6 +451,21 @@ frontend:
           agent: "testing"
           comment: "✅ İpuçları bölümü tam çalışıyor. '💡 İpuçları' başlığı ve 4 ipucu metni ('Spesifik sorular sorun', 'Doküman adlarını kullanın', 'Farklı kelimelerle deneyin', 'Kısa ve net cümleler kurun') görünür."
 
+  - task: "Tab Navigation Issue Resolution"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported that document and group deletion were not working from the frontend due to persistent tab navigation issue where the 'Doküman Yönetimi' tab could not be clicked or activated, preventing access to document management features."
+        - working: true
+          agent: "main"
+          comment: "✅ Tab navigation issue resolved! Screenshots confirmed that both 'Soru-Cevap' and 'Doküman Yönetimi' tabs are fully functional. Users can successfully switch between tabs, access document management features including upload, group management, and document filtering. The previously reported issue appears to have been resolved."
+
   - task: "API Integration and Network Calls"
     implemented: true
     working: true
