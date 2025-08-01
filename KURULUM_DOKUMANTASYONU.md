@@ -813,40 +813,111 @@ sudo journalctl -u kpa-backend -f
 sudo systemctl show kpa-backend --property=MainPID,ActiveState,SubState,LoadState
 ```
 
-### PM2 ile Alternatif (Önerilen)
+### PM2 ile Alternatif Kurulum (Ubuntu 24.04 - Önerilen)
 
 ```bash
-# PM2 kurulumu:
-sudo npm install -g pm2
+# PM2'yi global olarak kurun
+sudo npm install -g pm2@latest
 
-# Backend için PM2 konfigürasyonu:
-cd /path/to/kpa-project/backend
+# PM2 versiyonunu kontrol edin
+pm2 --version
+
+# Backend için PM2 ecosystem dosyası oluşturun
+cd /opt/kpa/backend
+sudo -u kpa nano ecosystem.config.js
 ```
 
-```bash
-# ecosystem.config.js oluşturun:
-cat > ecosystem.config.js << 'EOF'
+```javascript
+// /opt/kpa/backend/ecosystem.config.js
 module.exports = {
   apps: [{
     name: 'kpa-backend',
     script: 'venv/bin/uvicorn',
-    args: 'server:app --host 0.0.0.0 --port 8001 --workers 4',
-    cwd: '/path/to/kpa-project/backend',
+    args: 'server:app --host 0.0.0.0 --port 8001 --workers 4 --worker-class uvicorn.workers.UvicornWorker',
+    cwd: '/opt/kpa/backend',
+    user: 'kpa',
+    
+    // Process management
     instances: 1,
+    exec_mode: 'fork',
     autorestart: true,
     watch: false,
-    max_memory_restart: '1G',
+    max_memory_restart: '2G',
+    
+    // Logging
+    log_file: '/var/log/kpa/pm2-combined.log',
+    out_file: '/var/log/kpa/pm2-out.log',
+    error_file: '/var/log/kpa/pm2-error.log',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    merge_logs: true,
+    
+    // Environment
     env: {
-      NODE_ENV: 'production'
-    }
+      NODE_ENV: 'production',
+      PYTHONPATH: '/opt/kpa/backend',
+      PATH: '/opt/kpa/backend/venv/bin:' + process.env.PATH
+    },
+    
+    // Health monitoring
+    min_uptime: '10s',
+    max_restarts: 10,
+    
+    // Advanced settings
+    kill_timeout: 5000,
+    listen_timeout: 8000,
+    
+    // Cron restart (günlük 3:00'da yeniden başlat)
+    cron_restart: '0 3 * * *'
   }]
 };
-EOF
+```
 
-# PM2 ile başlatın:
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
+#### PM2 ile Başlatma ve Yönetim
+
+```bash
+# PM2'yi kpa kullanıcısı olarak başlatın
+sudo -u kpa pm2 start /opt/kpa/backend/ecosystem.config.js
+
+# PM2 durumunu kontrol edin
+sudo -u kpa pm2 status
+
+# Logları izleyin
+sudo -u kpa pm2 logs kpa-backend --lines 50
+
+# PM2 monitoring
+sudo -u kpa pm2 monit
+
+# PM2 konfigürasyonunu kaydedin
+sudo -u kpa pm2 save
+
+# Sistem boot'unda otomatik başlatma için
+sudo -u kpa pm2 startup systemd
+# Çıktıdaki komutu root olarak çalıştırın
+
+# PM2 web monitoring (opsiyonel)
+sudo -u kpa pm2 web
+```
+
+#### PM2 Yönetim Komutları
+
+```bash
+# Servis yeniden başlatma
+sudo -u kpa pm2 restart kpa-backend
+
+# Servis durdurma
+sudo -u kpa pm2 stop kpa-backend
+
+# Servis silme
+sudo -u kpa pm2 delete kpa-backend
+
+# Tüm servisleri yeniden başlatma
+sudo -u kpa pm2 restart all
+
+# Memory kullanımını kontrol etme
+sudo -u kpa pm2 show kpa-backend
+
+# Process scaling (load arttığında)
+sudo -u kpa pm2 scale kpa-backend 6
 ```
 
 ---
