@@ -761,7 +761,7 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                   {documents.map((doc) => (
                     <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-2">
+                        <div className="flex items-start space-x-2 flex-1 min-w-0">
                           <input
                             type="checkbox"
                             checked={selectedDocuments.includes(doc.id)}
@@ -772,53 +772,71 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                                 setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
                               }
                             }}
-                            className="mt-1"
+                            className="mt-1 flex-shrink-0"
                           />
                           
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className="text-lg">
+                            <div className="flex items-start space-x-2 mb-2">
+                              <span className="text-lg flex-shrink-0">
                                 {doc.file_type === '.doc' ? '📄' : '📝'}
                               </span>
-                              <h3 className="text-sm font-medium text-gray-900 truncate" title={doc.filename}>
-                                {doc.filename}
-                              </h3>
+                              <div className="flex-1 min-w-0">
+                                <h3 
+                                  className="text-sm font-medium text-gray-900 leading-tight break-words"
+                                  title={doc.filename}
+                                  style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    wordBreak: 'break-word',
+                                    hyphens: 'auto'
+                                  }}
+                                >
+                                  {doc.filename}
+                                </h3>
+                              </div>
                             </div>
                             
                             {/* Grup Bilgisi */}
                             {doc.group_name && (
                               <div className="mb-2">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700">
-                                  📁 {doc.group_name}
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-700 max-w-full">
+                                  <span className="flex-shrink-0">📁</span>
+                                  <span className="ml-1 truncate">{doc.group_name}</span>
                                 </span>
                               </div>
                             )}
                             
                             <div className="space-y-1 text-xs text-gray-600">
                               <div className="flex justify-between">
-                                <span>Format:</span>
+                                <span className="flex-shrink-0">Format:</span>
                                 <span className="font-medium">{doc.file_type?.toUpperCase()}</span>
                               </div>
                               
                               <div className="flex justify-between">
-                                <span>Boyut:</span>
+                                <span className="flex-shrink-0">Boyut:</span>
                                 <span className="font-medium">{doc.file_size_human || 'Bilinmiyor'}</span>
                               </div>
                               
                               <div className="flex justify-between">
-                                <span>Parçalar:</span>
+                                <span className="flex-shrink-0">Parçalar:</span>
                                 <span className="font-medium">{doc.chunk_count || 0}</span>
                               </div>
                               
                               <div className="flex justify-between">
-                                <span>Yüklenme:</span>
-                                <span className="font-medium">
-                                  {doc.created_at ? new Date(doc.created_at).toLocaleDateString('tr-TR') : 'Bilinmiyor'}
+                                <span className="flex-shrink-0">Tarih:</span>
+                                <span className="font-medium text-right">
+                                  {doc.created_at ? new Date(doc.created_at).toLocaleDateString('tr-TR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: '2-digit'
+                                  }) : 'Bilinmiyor'}
                                 </span>
                               </div>
                               
                               <div className="flex justify-between items-center">
-                                <span>Durum:</span>
+                                <span className="flex-shrink-0">Durum:</span>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   doc.embeddings_created 
                                     ? 'bg-green-100 text-green-800' 
@@ -833,13 +851,13 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                               
                               {doc.processing_time && (
                                 <div className="flex justify-between">
-                                  <span>İşlem Süresi:</span>
+                                  <span className="flex-shrink-0">İşlem:</span>
                                   <span className="font-medium">{doc.processing_time}</span>
                                 </div>
                               )}
                               
                               {doc.error_message && (
-                                <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs">
+                                <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs break-words">
                                   <strong>Hata:</strong> {doc.error_message}
                                 </div>
                               )}
@@ -847,7 +865,7 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                           </div>
                         </div>
                         
-                        <div className="ml-2 flex flex-col space-y-1">
+                        <div className="ml-2 flex flex-col space-y-1 flex-shrink-0">
                           <button
                             onClick={() => handleDeleteDocument(doc.id)}
                             className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
