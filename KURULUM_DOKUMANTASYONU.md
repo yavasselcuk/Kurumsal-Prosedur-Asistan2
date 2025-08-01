@@ -605,19 +605,53 @@ sudo tail -f /var/log/nginx/access.log
 sudo tail -f /var/log/nginx/error.log
 ```
 
-### SSL Sertifikası (Let's Encrypt)
+### SSL Sertifikası (Let's Encrypt - Ubuntu 24.04)
 
 ```bash
-# Certbot kurulumu:
-sudo apt install certbot python3-certbot-nginx
+# Certbot ve Nginx plugin kurulumu
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
 
-# SSL sertifikası al:
-sudo certbot --nginx -d [DOMAIN-ADINIZ]
+# Certbot versiyonunu kontrol edin
+certbot --version
 
-# Otomatik yenileme:
+# SSL sertifikası alın (interaktif)
+sudo certbot --nginx -d [DOMAIN-ADINIZ] -d www.[DOMAIN-ADINIZ]
+
+# Veya otomatik mod:
+sudo certbot --nginx -d [DOMAIN-ADINIZ] -d www.[DOMAIN-ADINIZ] --non-interactive --agree-tos --email [EMAIL-ADRESINIZ]
+
+# Sertifika durumunu kontrol edin
+sudo certbot certificates
+
+# Test renewal
+sudo certbot renew --dry-run
+
+# Otomatik yenileme için crontab ayarlayın
 sudo crontab -e
 # Şu satırı ekleyin:
-0 12 * * * /usr/bin/certbot renew --quiet
+0 12 * * * /usr/bin/certbot renew --quiet --post-hook "systemctl reload nginx"
+
+# Alternatif olarak systemd timer kullanın
+sudo systemctl enable certbot.timer
+sudo systemctl start certbot.timer
+sudo systemctl status certbot.timer
+```
+
+#### SSL Konfigürasyonu Doğrulama
+
+```bash
+# SSL Labs test için (manuel kontrol)
+echo "SSL test URL: https://www.ssllabs.com/ssltest/analyze.html?d=[DOMAIN-ADINIZ]"
+
+# Command line SSL testi
+openssl s_client -connect [DOMAIN-ADINIZ]:443 -servername [DOMAIN-ADINIZ] < /dev/null
+
+# Nginx SSL konfigürasyonunu test edin
+sudo nginx -t
+
+# SSL certificate detaylarını görüntüleyin
+sudo openssl x509 -in /etc/letsencrypt/live/[DOMAIN-ADINIZ]/fullchain.pem -text -noout
 ```
 
 ---
