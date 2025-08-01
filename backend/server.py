@@ -47,6 +47,14 @@ app = FastAPI(title="Kurumsal Prosedür Asistanı", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 
 # Models
+class DocumentGroup(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = "#3b82f6"  # Default blue color
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    document_count: int = 0
+
 class DocumentUpload(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     filename: str
@@ -58,6 +66,9 @@ class DocumentUpload(BaseModel):
     embeddings_created: bool = False
     upload_status: str = "processing"  # processing, completed, failed
     error_message: Optional[str] = None
+    group_id: Optional[str] = None  # Grup ID'si
+    group_name: Optional[str] = None  # Grup adı (cache için)
+    tags: List[str] = []  # Etiketler
     created_at: datetime = Field(default_factory=datetime.utcnow)
     processed_at: Optional[datetime] = None
 
@@ -70,12 +81,16 @@ class DocumentInfo(BaseModel):
     embeddings_created: bool
     upload_status: str
     error_message: Optional[str] = None
+    group_id: Optional[str] = None
+    group_name: Optional[str] = None
+    tags: List[str] = []
     created_at: datetime
     processed_at: Optional[datetime] = None
 
 class QuestionRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
+    group_filter: Optional[str] = None  # Sadece belirli gruptan arama
 
 class ChatSession(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -84,6 +99,7 @@ class ChatSession(BaseModel):
     answer: str
     context_chunks: List[str]
     source_documents: List[str]  # Kaynak doküman adları
+    source_groups: List[str] = []  # Kaynak grup adları
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class SystemStatus(BaseModel):
@@ -93,11 +109,21 @@ class SystemStatus(BaseModel):
     faiss_index_ready: bool
     supported_formats: List[str]
     processing_queue: int
+    total_groups: int
 
 class DocumentDeleteResponse(BaseModel):
     message: str
     document_id: str
     deleted_chunks: int
+
+class GroupCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = "#3b82f6"
+
+class DocumentMoveRequest(BaseModel):
+    document_ids: List[str]
+    group_id: Optional[str] = None  # None = "Gruplandırılmamış"
 
 # Helper functions
 async def extract_text_from_document(file_content: bytes, filename: str) -> str:
