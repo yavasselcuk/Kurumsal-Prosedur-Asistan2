@@ -353,13 +353,13 @@ async def get_system_status():
 
 @api_router.post("/upload-document")
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """Word dokümanı yükleme"""
+    """Word dokümanı yükleme (.doc ve .docx desteği)"""
     try:
         # Dosya tipini kontrol et
         if not validate_file_type(file.filename):
             raise HTTPException(status_code=400, detail="Sadece .doc ve .docx formatındaki dosyalar desteklenir")
         
-        # Dosya boyutunu kontrol et (örnek: 10MB limit)
+        # Dosya boyutunu kontrol et (10MB limit)
         file_content = await file.read()
         file_size = len(file_content)
         max_size = 10 * 1024 * 1024  # 10MB
@@ -387,7 +387,8 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
             content=text_content,
             chunks=chunks,
             chunk_count=len(chunks),
-            embeddings_created=False
+            embeddings_created=False,
+            upload_status="processing"
         )
         
         await db.documents.insert_one(document.dict())
@@ -398,6 +399,7 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         return {
             "message": f"Doküman başarıyla yüklendi: {file.filename}",
             "document_id": document.id,
+            "file_type": document.file_type,
             "file_size": get_file_size_human_readable(file_size),
             "chunk_count": len(chunks),
             "processing": "Embedding oluşturma işlemi başlatıldı"
