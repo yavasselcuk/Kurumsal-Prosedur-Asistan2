@@ -498,29 +498,83 @@ function App() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-2">
-                            <span className="text-lg">📄</span>
-                            <h3 className="text-sm font-medium text-gray-900 truncate">
+                            <span className="text-lg">
+                              {doc.file_type === '.doc' ? '📄' : '📝'}
+                            </span>
+                            <h3 className="text-sm font-medium text-gray-900 truncate" title={doc.filename}>
                               {doc.filename}
                             </h3>
                           </div>
                           
                           <div className="space-y-1 text-xs text-gray-600">
-                            <p>Parça sayısı: {doc.chunks?.length || 0}</p>
-                            <p>Yüklenme: {new Date(doc.created_at).toLocaleDateString('tr-TR')}</p>
-                            <p className="flex items-center space-x-1">
-                              <span className={`w-2 h-2 rounded-full ${doc.embeddings_created ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                              <span>{doc.embeddings_created ? 'İşlendi' : 'İşleniyor'}</span>
-                            </p>
+                            <div className="flex justify-between">
+                              <span>Format:</span>
+                              <span className="font-medium">{doc.file_type?.toUpperCase()}</span>
+                            </div>
+                            
+                            <div className="flex justify-between">
+                              <span>Boyut:</span>
+                              <span className="font-medium">{doc.file_size_human || 'Bilinmiyor'}</span>
+                            </div>
+                            
+                            <div className="flex justify-between">
+                              <span>Parçalar:</span>
+                              <span className="font-medium">{doc.chunk_count || 0}</span>
+                            </div>
+                            
+                            <div className="flex justify-between">
+                              <span>Yüklenme:</span>
+                              <span className="font-medium">
+                                {doc.created_at ? new Date(doc.created_at).toLocaleDateString('tr-TR') : 'Bilinmiyor'}
+                              </span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                              <span>Durum:</span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                doc.embeddings_created 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : doc.upload_status === 'failed'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {doc.embeddings_created ? '✓ Hazır' : 
+                                 doc.upload_status === 'failed' ? '✗ Hata' : '⏳ İşleniyor'}
+                              </span>
+                            </div>
+                            
+                            {doc.processing_time && (
+                              <div className="flex justify-between">
+                                <span>İşlem Süresi:</span>
+                                <span className="font-medium">{doc.processing_time}</span>
+                              </div>
+                            )}
+                            
+                            {doc.error_message && (
+                              <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs">
+                                <strong>Hata:</strong> {doc.error_message}
+                              </div>
+                            )}
                           </div>
                         </div>
                         
-                        <button
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          className="ml-2 p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                          title="Sil"
-                        >
-                          🗑️
-                        </button>
+                        <div className="ml-2 flex flex-col space-y-1">
+                          <button
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Dokümanı Sil"
+                          >
+                            🗑️
+                          </button>
+                          
+                          <button
+                            onClick={() => handleViewDocument(doc.id)}
+                            className="p-1 text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                            title="Detayları Görüntüle"
+                          >
+                            👁️
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
