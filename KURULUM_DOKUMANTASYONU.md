@@ -656,41 +656,161 @@ sudo openssl x509 -in /etc/letsencrypt/live/[DOMAIN-ADINIZ]/fullchain.pem -text 
 
 ---
 
-## 🔧 Servis Konfigürasyonu
+## 🔧 Servis Konfigürasyonu (Ubuntu 24.04 LTS)
 
 ### Systemd ile Backend Servisi
 
 ```bash
-# Servis dosyası oluşturun:
+# KPA kullanıcısı oluşturun (güvenlik için)
+sudo useradd --system --create-home --shell /bin/bash kpa
+sudo usermod -aG www-data kpa
+
+# Proje dizini sahipliğini ayarlayın
+sudo chown -R kpa:kpa /opt/kpa
+sudo chmod -R 755 /opt/kpa
+
+# Log dizinleri oluşturun
+sudo mkdir -p /var/log/kpa
+sudo chown kpa:kpa /var/log/kpa
+
+# Systemd servis dosyası oluşturun
 sudo nano /etc/systemd/system/kpa-backend.service
 ```
 
+#### KPA Backend Systemd Service (Ubuntu 24.04)
+
 ```ini
+# /etc/systemd/system/kpa-backend.service
 [Unit]
-Description=KPA Backend Service  
+Description=KPA Backend Service - Kurumsal Prosedür Asistanı
+Documentation=https://github.com/[username]/kurumsal-prosedur-asistani
 After=network.target mongodb.service
+Wants=mongodb.service
 
 [Service]
-Type=simple
-User=www-data
-WorkingDirectory=/path/to/kpa-project/backend
-Environment=PATH=/path/to/kpa-project/backend/venv/bin
-ExecStart=/path/to/kpa-project/backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 4
+Type=exec
+User=kpa
+Group=kpa
+WorkingDirectory=/opt/kpa/backend
+Environment=PATH=/opt/kpa/backend/venv/bin
+EnvironmentFile=/opt/kpa/backend/.env
+
+# Güvenlik ayarları (Ubuntu 24.04)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/kpa /var/log/kpa
+PrivateDevices=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictRealtime=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Ana komut
+ExecStart=/opt/kpa/backend/venv/bin/uvicorn server:app \
+    --host 0.0.0.0 \
+    --port 8001 \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --log-level info \
+    --access-log \
+    --log-config /opt/kpa/backend/logging.conf
+
+# Health check
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
 Restart=always
-RestartSec=3
+RestartSec=10
+TimeoutStopSec=30
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kpa-backend
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+#### Logging Konfigürasyonu
+
 ```bash
-# Servisi başlatın:
+# Logging konfigürasyon dosyası oluşturun
+sudo nano /opt/kpa/backend/logging.conf
+```
+
+```ini
+# /opt/kpa/backend/logging.conf
+[loggers]
+keys=root,uvicorn.error,uvicorn.access
+
+[handlers]
+keys=default,access
+
+[formatters]
+keys=default,access
+
+[logger_root]
+level=INFO
+handlers=default
+
+[logger_uvicorn.error]
+level=INFO
+handlers=default
+propagate=1
+qualname=uvicorn.error
+
+[logger_uvicorn.access]
+level=INFO
+handlers=access
+propagate=0
+qualname=uvicorn.access
+
+[handler_default]
+class=logging.handlers.RotatingFileHandler
+formatter=default
+args=('/var/log/kpa/backend.log', 'a', 10485760, 5)
+
+[handler_access]
+class=logging.handlers.RotatingFileHandler
+formatter=access
+args=('/var/log/kpa/access.log', 'a', 10485760, 5)
+
+[formatter_default]
+format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+datefmt=%Y-%m-%d %H:%M:%S
+
+[formatter_access]
+format=%(asctime)s - %(client_addr)s - "%(request_line)s" %(status_code)s
+```
+
+#### Systemd Servisini Başlatma
+
+```bash
+# Systemd daemon'ı yeniden yükleyin
 sudo systemctl daemon-reload
+
+# Servisi enable edin (boot'ta otomatik başlama)
 sudo systemctl enable kpa-backend
+
+# Servisi başlatın
 sudo systemctl start kpa-backend
 
-# Servis durumunu kontrol edin:
+# Servis durumunu kontrol edin
 sudo systemctl status kpa-backend
+
+# Servis loglarını izleyin
+sudo journalctl -u kpa-backend -f
+
+# Servis performansını kontrol edin
+sudo systemctl show kpa-backend --property=MainPID,ActiveState,SubState,LoadState
 ```
 
 ### PM2 ile Alternatif (Önerilen)
