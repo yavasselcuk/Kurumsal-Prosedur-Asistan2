@@ -549,8 +549,12 @@ async def move_documents(request: DocumentMoveRequest):
         raise HTTPException(status_code=500, detail=f"Dokümanlar taşınırken hata: {str(e)}")
 
 @api_router.post("/upload-document")
-async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """Word dokümanı yükleme (.doc ve .docx desteği)"""
+async def upload_document(
+    background_tasks: BackgroundTasks, 
+    file: UploadFile = File(...),
+    group_id: Optional[str] = None
+):
+    """Word dokümanı yükleme (.doc ve .docx desteği + gruplandırma)"""
     try:
         # Dosya tipini kontrol et
         if not validate_file_type(file.filename):
@@ -566,6 +570,14 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
                 status_code=400, 
                 detail=f"Dosya boyutu çok büyük. Maksimum {get_file_size_human_readable(max_size)} olmalıdır."
             )
+        
+        # Grup bilgilerini al (eğer belirtilmişse)
+        group_name = None
+        if group_id:
+            group = await db.document_groups.find_one({"id": group_id})
+            if not group:
+                raise HTTPException(status_code=404, detail="Belirtilen grup bulunamadı")
+            group_name = group["name"]
         
         # Word dokümanından metin çıkar
         text_content = await extract_text_from_document(file_content, file.filename)
@@ -585,7 +597,9 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
             chunks=chunks,
             chunk_count=len(chunks),
             embeddings_created=False,
-            upload_status="processing"
+            upload_status="processing",
+            group_id=group_id,
+            group_name=group_name
         )
         
         await db.documents.insert_one(document.dict())
@@ -593,7 +607,7 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         # Embedding oluşturma işlemini background'a at
         background_tasks.add_task(process_document_embeddings, document.id)
         
-        return {
+        response_data = {
             "message": f"Doküman başarıyla yüklendi: {file.filename}",
             "document_id": document.id,
             "file_type": document.file_type,
@@ -601,6 +615,15 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
             "chunk_count": len(chunks),
             "processing": "Embedding oluşturma işlemi başlatıldı"
         }
+        
+        if group_name:
+            response_data["group"] = {
+                "id": group_id,
+                "name": group_name
+            }
+            response_data["message"] += f" ('{group_name}' grubuna eklendi)"
+        
+        return response_data
         
     except HTTPException:
         raise
