@@ -254,6 +254,167 @@ class KPABackendTester:
             )
             return False
 
+    def test_file_validation(self):
+        """Test file format validation for .doc and .docx support"""
+        try:
+            # Test with a mock file upload to check validation
+            # We'll test the upload endpoint with invalid file types to see if validation works
+            
+            # Test 1: Invalid file type (should be rejected)
+            files = {'file': ('test.txt', b'test content', 'text/plain')}
+            response = self.session.post(f"{self.base_url}/upload-document", files=files)
+            
+            if response.status_code == 400:
+                error_data = response.json()
+                if "doc" in error_data.get("detail", "").lower() and "docx" in error_data.get("detail", "").lower():
+                    self.log_test(
+                        "File Format Validation",
+                        True,
+                        f"File validation working correctly - rejected .txt file with appropriate error: {error_data.get('detail', '')}",
+                        error_data
+                    )
+                else:
+                    self.log_test(
+                        "File Format Validation",
+                        False,
+                        f"File validation error message doesn't mention supported formats: {error_data.get('detail', '')}",
+                        error_data
+                    )
+            else:
+                self.log_test(
+                    "File Format Validation",
+                    False,
+                    f"Expected HTTP 400 for invalid file type, got {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "File Format Validation",
+                False,
+                f"Connection error during file validation test: {str(e)}",
+                None
+            )
+
+    def test_document_delete_response_structure(self):
+        """Test DELETE /api/documents/{id} enhanced response structure"""
+        try:
+            # First, try to get a document ID (if any exist)
+            docs_response = self.session.get(f"{self.base_url}/documents")
+            
+            if docs_response.status_code == 200:
+                docs_data = docs_response.json()
+                documents = docs_data.get("documents", [])
+                
+                if documents:
+                    # Test delete with existing document
+                    doc_id = documents[0]["id"]
+                    delete_response = self.session.delete(f"{self.base_url}/documents/{doc_id}")
+                    
+                    if delete_response.status_code == 200:
+                        delete_data = delete_response.json()
+                        required_fields = ["message", "document_id", "deleted_chunks"]
+                        missing_fields = [field for field in required_fields if field not in delete_data]
+                        
+                        if not missing_fields:
+                            self.log_test(
+                                "Document Delete Response Structure",
+                                True,
+                                f"Enhanced delete response structure validated. Fields: {list(delete_data.keys())}",
+                                delete_data
+                            )
+                        else:
+                            self.log_test(
+                                "Document Delete Response Structure",
+                                False,
+                                f"Delete response missing required fields: {missing_fields}",
+                                delete_data
+                            )
+                    else:
+                        self.log_test(
+                            "Document Delete Response Structure",
+                            False,
+                            f"Delete request failed with HTTP {delete_response.status_code}",
+                            delete_response.text
+                        )
+                else:
+                    # Test delete with non-existent document to check error structure
+                    fake_id = "non-existent-id"
+                    delete_response = self.session.delete(f"{self.base_url}/documents/{fake_id}")
+                    
+                    if delete_response.status_code == 404:
+                        self.log_test(
+                            "Document Delete Response Structure",
+                            True,
+                            "Delete endpoint correctly returns 404 for non-existent document (no documents to test actual delete)",
+                            None
+                        )
+                    else:
+                        self.log_test(
+                            "Document Delete Response Structure",
+                            False,
+                            f"Expected 404 for non-existent document, got {delete_response.status_code}",
+                            delete_response.text
+                        )
+            else:
+                self.log_test(
+                    "Document Delete Response Structure",
+                    False,
+                    f"Could not retrieve documents list to test delete: HTTP {docs_response.status_code}",
+                    docs_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Document Delete Response Structure",
+                False,
+                f"Connection error during delete test: {str(e)}",
+                None
+            )
+
+    def test_new_format_support_active(self):
+        """Test that .doc and .docx format support is active in the API"""
+        try:
+            # Check status endpoint for supported formats
+            status_response = self.session.get(f"{self.base_url}/status")
+            
+            if status_response.status_code == 200:
+                status_data = status_response.json()
+                supported_formats = status_data.get("supported_formats", [])
+                
+                expected_formats = ['.doc', '.docx']
+                formats_match = set(supported_formats) == set(expected_formats)
+                
+                if formats_match:
+                    self.log_test(
+                        "New Format Support Active",
+                        True,
+                        f"Both .doc and .docx formats are active and supported: {supported_formats}",
+                        {"supported_formats": supported_formats}
+                    )
+                else:
+                    self.log_test(
+                        "New Format Support Active",
+                        False,
+                        f"Supported formats don't match expected. Expected: {expected_formats}, Got: {supported_formats}",
+                        {"expected": expected_formats, "actual": supported_formats}
+                    )
+            else:
+                self.log_test(
+                    "New Format Support Active",
+                    False,
+                    f"Could not retrieve status to check supported formats: HTTP {status_response.status_code}",
+                    status_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "New Format Support Active",
+                False,
+                f"Connection error during format support test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("=" * 60)
