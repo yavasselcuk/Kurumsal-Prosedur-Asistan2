@@ -341,22 +341,74 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 openssl rand -base64 32
 ```
 
-### 4. Frontend Kurulumu
+### 4. Frontend Kurulumu (Ubuntu 24.04 LTS)
 
 ```bash
-cd ../frontend
+cd /opt/kpa/frontend
 
-# Node.js bağımlılıklarını yükleyin:
-yarn install
-# veya: npm install
+# Node.js ve npm versiyonlarını kontrol edin
+node --version  # v20.x.x (Ubuntu 24.04 için önerilen)
+npm --version   # 10.x.x
+yarn --version  # 1.22.x
 
-# Production build oluşturun:
+# Node.js memory limitini artırın (büyük projeler için)
+export NODE_OPTIONS="--max-old-space-size=4096"
+
+# Bağımlılıkları yükleyin (Yarn önerilen)
+yarn install --frozen-lockfile
+
+# Alternatif olarak npm:
+# npm ci --production=false
+
+# Development dependencies kontrolü
+yarn list --depth=0
+
+# Production build oluşturun
 yarn build
-# veya: npm run build
 
-# Environment variables:
-cp .env.example .env
+# Build çıktısını kontrol edin
+ls -la build/
+du -sh build/
+
+# Environment variables ayarlayın:
+cp .env.example .env 2>/dev/null || true
 nano .env
+```
+
+#### Frontend Environment Variables (Ubuntu 24.04)
+
+```bash
+# frontend/.env dosyası:
+REACT_APP_BACKEND_URL=https://[DOMAIN-ADINIZ]/api
+REACT_APP_ENV=production
+REACT_APP_VERSION=1.0.0
+
+# Development ayarları:
+# REACT_APP_BACKEND_URL=http://localhost:8001/api
+# REACT_APP_ENV=development
+
+# Build optimizasyonları (Ubuntu 24.04):
+GENERATE_SOURCEMAP=false
+INLINE_RUNTIME_CHUNK=false
+IMAGE_INLINE_SIZE_LIMIT=0
+
+# Performance monitoring (opsiyonel):
+REACT_APP_ENABLE_ANALYTICS=false
+```
+
+#### Build Optimizasyonu
+
+```bash
+# Production build ile bundle analizi
+cd /opt/kpa/frontend
+yarn build
+
+# Bundle boyutunu analiz edin
+npx webpack-bundle-analyzer build/static/js/*.js
+
+# Gzip sıkıştırma simülasyonu
+find build -name "*.js" -o -name "*.css" | xargs gzip -c > /dev/null
+echo "Gzip sıkıştırma testi başarılı"
 ```
 
 ### 5. Frontend Environment Variables
