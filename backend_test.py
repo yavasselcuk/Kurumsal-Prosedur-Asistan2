@@ -296,6 +296,267 @@ class KPABackendTester:
                 None
             )
 
+    def test_doc_processing_system(self):
+        """🔥 PRIORITY: Test DOC processing system - antiword installation and textract fallback"""
+        try:
+            print("   🔍 Testing DOC processing capabilities...")
+            
+            # Test 1: Check if antiword is available on the system
+            import subprocess
+            try:
+                result = subprocess.run(['which', 'antiword'], capture_output=True, text=True, timeout=10)
+                antiword_available = result.returncode == 0
+                antiword_path = result.stdout.strip() if antiword_available else "Not found"
+                
+                if antiword_available:
+                    # Test antiword version
+                    version_result = subprocess.run(['antiword', '-v'], capture_output=True, text=True, timeout=10)
+                    antiword_info = f"Available at {antiword_path}, Version info: {version_result.stderr[:100] if version_result.stderr else 'Unknown'}"
+                else:
+                    antiword_info = "Not installed or not in PATH"
+                
+                self.log_test(
+                    "DOC Processing - Antiword Installation",
+                    antiword_available,
+                    f"Antiword status: {antiword_info}",
+                    {"available": antiword_available, "path": antiword_path}
+                )
+                
+            except Exception as e:
+                self.log_test(
+                    "DOC Processing - Antiword Installation",
+                    False,
+                    f"Error checking antiword: {str(e)}",
+                    None
+                )
+            
+            # Test 2: Check textract availability (fallback mechanism)
+            try:
+                import textract
+                textract_available = True
+                textract_info = f"Textract module available: {textract.__version__ if hasattr(textract, '__version__') else 'Version unknown'}"
+            except ImportError as e:
+                textract_available = False
+                textract_info = f"Textract not available: {str(e)}"
+            
+            self.log_test(
+                "DOC Processing - Textract Fallback",
+                textract_available,
+                textract_info,
+                {"available": textract_available}
+            )
+            
+            # Test 3: Create a minimal DOC file for testing (if possible)
+            # Since we can't easily create a real DOC file, we'll test with a fake DOC upload
+            # to see how the system handles DOC processing errors
+            
+            print("   📄 Testing DOC file upload handling...")
+            
+            # Create fake DOC content (this will likely fail processing, but we can test error handling)
+            fake_doc_content = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1' + b'Fake DOC content for testing' + b'\x00' * 100
+            
+            files = {'file': ('test_document.doc', fake_doc_content, 'application/msword')}
+            response = self.session.post(f"{self.base_url}/upload-document", files=files)
+            
+            if response.status_code == 400:
+                error_data = response.json()
+                error_detail = error_data.get("detail", "")
+                
+                # Check if error message is user-friendly and mentions DOC processing
+                if any(keyword in error_detail.lower() for keyword in ["doc", "işlem", "process", "bozuk", "format"]):
+                    self.log_test(
+                        "DOC Processing - Error Handling",
+                        True,
+                        f"✅ DOC processing error handling working - user-friendly error message: {error_detail[:200]}",
+                        {"error_detail": error_detail}
+                    )
+                else:
+                    self.log_test(
+                        "DOC Processing - Error Handling",
+                        False,
+                        f"❌ DOC processing error message not user-friendly: {error_detail}",
+                        error_data
+                    )
+            elif response.status_code == 200:
+                # Unexpected success - the fake DOC was processed somehow
+                success_data = response.json()
+                self.log_test(
+                    "DOC Processing - Unexpected Success",
+                    True,
+                    f"⚠️ Fake DOC file was processed successfully (unexpected but not necessarily bad): {success_data.get('message', '')}",
+                    success_data
+                )
+            else:
+                self.log_test(
+                    "DOC Processing - Error Handling",
+                    False,
+                    f"❌ Unexpected HTTP status for DOC processing: {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "DOC Processing System",
+                False,
+                f"❌ Error during DOC processing system test: {str(e)}",
+                None
+            )
+
+    def test_document_processing_pipeline(self):
+        """🔥 PRIORITY: Test the complete document processing pipeline"""
+        try:
+            print("   ⚙️ Testing document processing pipeline...")
+            
+            # Test 1: Test with various file extensions to see pipeline behavior
+            test_files = [
+                ('test.docx', b'PK\x03\x04' + b'Fake DOCX content' + b'\x00' * 50, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+                ('test.doc', b'\xd0\xcf\x11\xe0' + b'Fake DOC content' + b'\x00' * 50, 'application/msword'),
+                ('invalid.pdf', b'%PDF-1.4' + b'Fake PDF content', 'application/pdf'),
+                ('invalid.rtf', b'{\\rtf1' + b'Fake RTF content', 'application/rtf')
+            ]
+            
+            pipeline_results = []
+            
+            for filename, content, mime_type in test_files:
+                print(f"     Testing pipeline with: {filename}")
+                
+                files = {'file': (filename, content, mime_type)}
+                response = self.session.post(f"{self.base_url}/upload-document", files=files)
+                
+                result = {
+                    "filename": filename,
+                    "status_code": response.status_code,
+                    "expected_behavior": "accept" if filename.endswith(('.doc', '.docx')) else "reject"
+                }
+                
+                if response.status_code == 400:
+                    error_data = response.json()
+                    result["error"] = error_data.get("detail", "")
+                    result["correct_rejection"] = not filename.endswith(('.doc', '.docx'))
+                elif response.status_code == 200:
+                    success_data = response.json()
+                    result["success"] = success_data.get("message", "")
+                    result["correct_acceptance"] = filename.endswith(('.doc', '.docx'))
+                else:
+                    result["unexpected_status"] = response.text
+                
+                pipeline_results.append(result)
+            
+            # Analyze pipeline results
+            correct_behaviors = 0
+            total_tests = len(test_files)
+            
+            for result in pipeline_results:
+                if result["expected_behavior"] == "accept":
+                    # Should accept .doc/.docx files (even if processing fails due to fake content)
+                    if result["status_code"] in [200, 400]:  # 400 is OK if it's due to content processing, not format rejection
+                        if result["status_code"] == 400 and "format" not in result.get("error", "").lower():
+                            correct_behaviors += 1  # Processing error, not format error
+                        elif result["status_code"] == 200:
+                            correct_behaviors += 1  # Successfully accepted
+                else:
+                    # Should reject non-.doc/.docx files
+                    if result["status_code"] == 400 and result.get("correct_rejection", False):
+                        correct_behaviors += 1
+            
+            pipeline_success = correct_behaviors >= (total_tests * 0.75)  # 75% success rate acceptable
+            
+            self.log_test(
+                "Document Processing Pipeline",
+                pipeline_success,
+                f"Pipeline behavior: {correct_behaviors}/{total_tests} correct responses. Pipeline {'working correctly' if pipeline_success else 'has issues'}",
+                {"results": pipeline_results, "success_rate": f"{correct_behaviors}/{total_tests}"}
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "Document Processing Pipeline",
+                False,
+                f"❌ Error during pipeline test: {str(e)}",
+                None
+            )
+
+    def test_enhanced_error_handling(self):
+        """🔥 PRIORITY: Test enhanced error handling and user-friendly messages"""
+        try:
+            print("   💬 Testing enhanced error handling...")
+            
+            # Test various error scenarios
+            error_scenarios = [
+                {
+                    "name": "Empty file",
+                    "filename": "empty.docx",
+                    "content": b'',
+                    "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "expected_keywords": ["boş", "empty", "boyut"]
+                },
+                {
+                    "name": "Very large file",
+                    "filename": "large.docx", 
+                    "content": b'PK\x03\x04' + b'X' * (11 * 1024 * 1024),  # 11MB file
+                    "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "expected_keywords": ["büyük", "boyut", "maksimum", "limit"]
+                },
+                {
+                    "name": "Corrupted DOC file",
+                    "filename": "corrupted.doc",
+                    "content": b'\xd0\xcf\x11\xe0' + b'corrupted content' + b'\xff' * 100,
+                    "mime_type": "application/msword",
+                    "expected_keywords": ["bozuk", "işlem", "hata", "format", "docx"]
+                }
+            ]
+            
+            error_handling_results = []
+            
+            for scenario in error_scenarios:
+                print(f"     Testing: {scenario['name']}")
+                
+                files = {'file': (scenario['filename'], scenario['content'], scenario['mime_type'])}
+                response = self.session.post(f"{self.base_url}/upload-document", files=files)
+                
+                result = {
+                    "scenario": scenario['name'],
+                    "status_code": response.status_code,
+                    "user_friendly": False,
+                    "contains_keywords": False
+                }
+                
+                if response.status_code == 400:
+                    error_data = response.json()
+                    error_message = error_data.get("detail", "").lower()
+                    
+                    # Check if error message is user-friendly (Turkish)
+                    result["user_friendly"] = any(turkish_word in error_message for turkish_word in 
+                                                ["dosya", "doküman", "lütfen", "hata", "boyut", "format"])
+                    
+                    # Check if contains expected keywords
+                    result["contains_keywords"] = any(keyword in error_message for keyword in scenario['expected_keywords'])
+                    result["error_message"] = error_data.get("detail", "")
+                
+                error_handling_results.append(result)
+            
+            # Evaluate error handling quality
+            user_friendly_count = sum(1 for r in error_handling_results if r["user_friendly"])
+            keyword_match_count = sum(1 for r in error_handling_results if r["contains_keywords"])
+            
+            error_handling_quality = (user_friendly_count + keyword_match_count) / (len(error_scenarios) * 2)
+            error_handling_success = error_handling_quality >= 0.6  # 60% quality threshold
+            
+            self.log_test(
+                "Enhanced Error Handling",
+                error_handling_success,
+                f"Error handling quality: {error_handling_quality:.1%}. User-friendly messages: {user_friendly_count}/{len(error_scenarios)}, Keyword matches: {keyword_match_count}/{len(error_scenarios)}",
+                {"results": error_handling_results, "quality_score": error_handling_quality}
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "Enhanced Error Handling",
+                False,
+                f"❌ Error during error handling test: {str(e)}",
+                None
+            )
+
     def test_document_delete_functionality(self):
         """Test DELETE /api/documents/{id} - PRIORITY: User reports deletion not working"""
         try:
