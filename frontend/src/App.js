@@ -35,9 +35,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Chat'in sonuna scroll yap
-    scrollToBottom();
-  }, [chatHistory]);
+    // selectedGroup değiştiğinde dokümanları yeniden fetch et
+    fetchDocuments();
+  }, [selectedGroup]);
 
   const generateSessionId = () => {
     return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
