@@ -52,6 +52,12 @@ function App() {
       const response = await fetch(`${backendUrl}/api/documents`);
       const data = await response.json();
       setDocuments(data.documents || []);
+      
+      // İstatistikleri de saklayabiliriz
+      if (data.statistics) {
+        // İstatistikleri state'e ekleyebiliriz
+        console.log('Document statistics:', data.statistics);
+      }
     } catch (error) {
       console.error('Dokümanlar alınamadı:', error);
     }
