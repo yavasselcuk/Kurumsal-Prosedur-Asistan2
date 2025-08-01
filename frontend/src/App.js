@@ -194,15 +194,45 @@ function App() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         fetchDocuments();
         fetchSystemStatus();
-        alert('Doküman başarıyla silindi.');
+        alert(data.message || 'Doküman başarıyla silindi.');
       } else {
         const data = await response.json();
         alert(`Hata: ${data.detail}`);
       }
     } catch (error) {
       alert(`Silme hatası: ${error.message}`);
+    }
+  };
+
+  const handleViewDocument = async (documentId) => {
+    try {
+      const response = await fetch(`${backendUrl}/api/documents/${documentId}`);
+      if (response.ok) {
+        const doc = await response.json();
+        
+        // Modal veya alert ile doküman detaylarını göster
+        const details = `
+Dosya Adı: ${doc.filename}
+Format: ${doc.file_type?.toUpperCase()}
+Boyut: ${doc.file_size_human}
+Parça Sayısı: ${doc.chunk_count}
+Kullanım Sayısı: ${doc.usage_count || 0}
+Yüklenme: ${doc.created_at ? new Date(doc.created_at).toLocaleString('tr-TR') : 'Bilinmiyor'}
+Durum: ${doc.embeddings_created ? 'Hazır' : 'İşleniyor'}
+
+İçerik Önizleme:
+${doc.content_preview || 'Önizleme mevcut değil'}
+        `;
+        
+        alert(details);
+      } else {
+        alert('Doküman detayları alınamadı.');
+      }
+    } catch (error) {
+      alert(`Detaylar alınırken hata: ${error.message}`);
     }
   };
 
