@@ -364,6 +364,7 @@ async def get_system_status():
     """Sistem durumunu getir"""
     try:
         doc_count = await db.documents.count_documents({})
+        group_count = await db.document_groups.count_documents({})
         chunk_count = len(document_chunks)
         
         return SystemStatus(
@@ -372,10 +373,180 @@ async def get_system_status():
             embedding_model_loaded=embedding_model is not None,
             faiss_index_ready=faiss_index is not None,
             supported_formats=['.doc', '.docx'],
-            processing_queue=0
+            processing_queue=0,
+            total_groups=group_count
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sistem durumu alınırken hata: {str(e)}")
+
+# Grup yönetimi endpoint'leri
+@api_router.get("/groups")
+async def get_groups():
+    """Tüm grupları listele"""
+    try:
+        groups = await db.document_groups.find({}).sort("name", 1).to_list(100)
+        
+        # Her grup için doküman sayısını hesapla
+        for group in groups:
+            doc_count = await db.documents.count_documents({"group_id": group["id"]})
+            group["document_count"] = doc_count
+        
+        return {
+            "groups": groups,
+            "total_count": len(groups)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gruplar alınırken hata: {str(e)}")
+
+@api_router.post("/groups")
+async def create_group(request: GroupCreateRequest):
+    """Yeni grup oluştur"""
+    try:
+        # Grup adı benzersizliği kontrolü
+        existing = await db.document_groups.find_one({"name": request.name})
+        if existing:
+            raise HTTPException(status_code=400, detail="Bu isimde bir grup zaten mevcut")
+        
+        group = DocumentGroup(
+            name=request.name,
+            description=request.description,
+            color=request.color
+        )
+        
+        await db.document_groups.insert_one(group.dict())
+        
+        return {
+            "message": f"'{request.name}' grubu başarıyla oluşturuldu",
+            "group": group.dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Grup oluşturulurken hata: {str(e)}")
+
+@api_router.put("/groups/{group_id}")
+async def update_group(group_id: str, request: GroupCreateRequest):
+    """Grup güncelle"""
+    try:
+        # Grup adı benzersizliği kontrolü (kendi ID'si hariç)
+        existing = await db.document_groups.find_one({
+            "name": request.name,
+            "id": {"$ne": group_id}
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Bu isimde bir grup zaten mevcut")
+        
+        result = await db.document_groups.update_one(
+            {"id": group_id},
+            {
+                "$set": {
+                    "name": request.name,
+                    "description": request.description,
+                    "color": request.color
+                }
+            }
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Grup bulunamadı")
+        
+        # İlgili dokümanların group_name'ini güncelle
+        await db.documents.update_many(
+            {"group_id": group_id},
+            {"$set": {"group_name": request.name}}
+        )
+        
+        return {"message": f"'{request.name}' grubu başarıyla güncellendi"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Grup güncellenirken hata: {str(e)}")
+
+@api_router.delete("/groups/{group_id}")
+async def delete_group(group_id: str, move_documents: bool = False):
+    """Grup sil"""
+    try:
+        # Grup bilgilerini al
+        group = await db.document_groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Grup bulunamadı")
+        
+        # Gruptaki doküman sayısını kontrol et
+        doc_count = await db.documents.count_documents({"group_id": group_id})
+        
+        if doc_count > 0 and not move_documents:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Bu grupta {doc_count} doküman var. Önce dokümanları başka gruba taşıyın veya move_documents=true parametresi kullanın."
+            )
+        
+        if move_documents:
+            # Dokümanları "Gruplandırılmamış" duruma getir
+            await db.documents.update_many(
+                {"group_id": group_id},
+                {
+                    "$unset": {"group_id": "", "group_name": ""}
+                }
+            )
+        
+        # Grubu sil
+        result = await db.document_groups.delete_one({"id": group_id})
+        
+        return {
+            "message": f"'{group['name']}' grubu başarıyla silindi",
+            "moved_documents": doc_count if move_documents else 0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Grup silinirken hata: {str(e)}")
+
+@api_router.post("/documents/move")
+async def move_documents(request: DocumentMoveRequest):
+    """Dokümanları gruba taşı"""
+    try:
+        if request.group_id:
+            # Grup var mı kontrol et
+            group = await db.document_groups.find_one({"id": request.group_id})
+            if not group:
+                raise HTTPException(status_code=404, detail="Hedef grup bulunamadı")
+            
+            # Dokümanları gruba taşı
+            result = await db.documents.update_many(
+                {"id": {"$in": request.document_ids}},
+                {
+                    "$set": {
+                        "group_id": request.group_id,
+                        "group_name": group["name"]
+                    }
+                }
+            )
+            
+            message = f"{result.modified_count} doküman '{group['name']}' grubuna taşındı"
+        else:
+            # Gruplandırılmamış duruma getir
+            result = await db.documents.update_many(
+                {"id": {"$in": request.document_ids}},
+                {
+                    "$unset": {"group_id": "", "group_name": ""}
+                }
+            )
+            
+            message = f"{result.modified_count} doküman gruplandırılmamış duruma getirildi"
+        
+        return {
+            "message": message,
+            "modified_count": result.modified_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dokümanlar taşınırken hata: {str(e)}")
 
 @api_router.post("/upload-document")
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
