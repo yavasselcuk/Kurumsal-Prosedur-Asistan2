@@ -409,6 +409,10 @@ test_plan:
     - "Enhanced Documents List Endpoint Test"
     - "New Format Support Validation"
     - "Enhanced Document Delete Operations Test"
+    - "Group Management APIs Test"
+    - "Document-Group Relationships Test"
+    - "System Status Total Groups Field Test"
+    - "Upload with Group Parameter Test"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
