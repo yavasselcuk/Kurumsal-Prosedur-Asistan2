@@ -501,20 +501,98 @@ async def get_chat_history(session_id: str):
 
 @api_router.get("/documents")
 async def get_documents():
-    """Yüklenmiş dokümanları listele"""
+    """Yüklenmiş dokümanları listele (gelişmiş)"""
     try:
+        # Dokümanları getir (içerik hariç)
         documents = await db.documents.find({}, {
             "content": 0,  # İçeriği dahil etme (çok büyük olabilir)
             "chunks": 0    # Chunk'ları dahil etme
-        }).to_list(100)
+        }).sort("created_at", -1).to_list(100)
+        
+        # Her doküman için ek bilgiler hesapla
+        processed_documents = []
+        for doc in documents:
+            doc_info = {
+                "id": doc.get("id"),
+                "filename": doc.get("filename"),
+                "file_type": doc.get("file_type", "Unknown"),
+                "file_size": doc.get("file_size", 0),
+                "file_size_human": get_file_size_human_readable(doc.get("file_size", 0)),
+                "chunk_count": doc.get("chunk_count", len(doc.get("chunks", []))),
+                "embeddings_created": doc.get("embeddings_created", False),
+                "upload_status": doc.get("upload_status", "unknown"),
+                "error_message": doc.get("error_message"),
+                "created_at": doc.get("created_at"),
+                "processed_at": doc.get("processed_at"),
+                "processing_time": None
+            }
+            
+            # Processing time hesapla
+            if doc_info["processed_at"] and doc_info["created_at"]:
+                try:
+                    processing_time = (doc_info["processed_at"] - doc_info["created_at"]).total_seconds()
+                    doc_info["processing_time"] = f"{processing_time:.1f}s"
+                except:
+                    pass
+            
+            processed_documents.append(doc_info)
+        
+        # İstatistikler
+        total_count = len(processed_documents)
+        completed_count = len([d for d in processed_documents if d["embeddings_created"]])
+        processing_count = len([d for d in processed_documents if d["upload_status"] == "processing"])
+        failed_count = len([d for d in processed_documents if d["upload_status"] == "failed"])
+        total_size = sum(d["file_size"] for d in processed_documents)
         
         return {
-            "documents": documents,
-            "total_count": len(documents)
+            "documents": processed_documents,
+            "statistics": {
+                "total_count": total_count,
+                "completed_count": completed_count,
+                "processing_count": processing_count,
+                "failed_count": failed_count,
+                "total_size": total_size,
+                "total_size_human": get_file_size_human_readable(total_size)
+            }
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Dokümanlar alınırken hata: {str(e)}")
+
+@api_router.get("/documents/{document_id}")
+async def get_document_details(document_id: str):
+    """Tek dokümanın detaylarını getir"""
+    try:
+        document = await db.documents.find_one({"id": document_id})
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+        
+        # Chat geçmişinde bu dokümanın ne kadar kullanıldığını bul
+        usage_count = await db.chat_sessions.count_documents({
+            "context_chunks": {"$in": document.get("chunks", [])}
+        })
+        
+        return {
+            "id": document.get("id"),
+            "filename": document.get("filename"),
+            "file_type": document.get("file_type"),
+            "file_size": document.get("file_size"),
+            "file_size_human": get_file_size_human_readable(document.get("file_size", 0)),
+            "chunk_count": document.get("chunk_count", len(document.get("chunks", []))),
+            "embeddings_created": document.get("embeddings_created", False),
+            "upload_status": document.get("upload_status"),
+            "error_message": document.get("error_message"),
+            "created_at": document.get("created_at"),
+            "processed_at": document.get("processed_at"),
+            "usage_count": usage_count,
+            "content_preview": document.get("content", "")[:500] + "..." if len(document.get("content", "")) > 500 else document.get("content", "")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Doküman detayları alınırken hata: {str(e)}")
 
 @api_router.delete("/documents/{document_id}")
 async def delete_document(document_id: str, background_tasks: BackgroundTasks):
