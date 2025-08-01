@@ -428,7 +428,7 @@ async def get_system_status():
 async def get_groups():
     """Tüm grupları listele"""
     try:
-        groups = await db.document_groups.find({}).sort("name", 1).to_list(100)
+        groups = await db.document_groups.find({}, {"_id": 0}).sort("name", 1).to_list(100)
         
         # Her grup için doküman sayısını hesapla
         for group in groups:
