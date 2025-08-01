@@ -428,7 +428,7 @@ function App() {
                     </div>
                     <div>
                       <p className="text-lg font-medium text-gray-900">Word Dokümanı Yükleyin</p>
-                      <p className="text-gray-600">Sadece .docx formatı desteklenir</p>
+                      <p className="text-gray-600">.doc ve .docx formatları desteklenir (Maksimum 10MB)</p>
                     </div>
                   </div>
                   
