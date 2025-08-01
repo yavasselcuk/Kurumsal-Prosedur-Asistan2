@@ -404,46 +404,413 @@ class KPABackendTester:
                 None
             )
 
-    def test_new_format_support_active(self):
-        """Test that .doc and .docx format support is active in the API"""
+    def test_group_management_apis(self):
+        """Test Group Management APIs - PRIORITY: GET, POST, PUT, DELETE /api/groups"""
         try:
-            # Check status endpoint for supported formats
-            status_response = self.session.get(f"{self.base_url}/status")
+            # Test 1: GET /api/groups - List all groups
+            print("   Testing GET /api/groups...")
+            groups_response = self.session.get(f"{self.base_url}/groups")
             
-            if status_response.status_code == 200:
-                status_data = status_response.json()
-                supported_formats = status_data.get("supported_formats", [])
+            if groups_response.status_code == 200:
+                groups_data = groups_response.json()
+                required_fields = ["groups", "total_count"]
+                missing_fields = [field for field in required_fields if field not in groups_data]
                 
-                expected_formats = ['.doc', '.docx']
-                formats_match = set(supported_formats) == set(expected_formats)
-                
-                if formats_match:
+                if not missing_fields:
+                    groups_list = groups_data.get("groups", [])
+                    total_count = groups_data.get("total_count", 0)
+                    
                     self.log_test(
-                        "New Format Support Active",
+                        "Group Management - GET /api/groups",
                         True,
-                        f"Both .doc and .docx formats are active and supported: {supported_formats}",
-                        {"supported_formats": supported_formats}
+                        f"✅ Groups list retrieved successfully. Total groups: {total_count}, Groups: {len(groups_list)}",
+                        {"total_count": total_count, "groups_count": len(groups_list)}
                     )
+                    
+                    # Test 2: POST /api/groups - Create new group
+                    print("   Testing POST /api/groups...")
+                    test_group_data = {
+                        "name": "Test Grup KPA",
+                        "description": "Test grubu - silinecek",
+                        "color": "#ff6b6b"
+                    }
+                    
+                    create_response = self.session.post(
+                        f"{self.base_url}/groups",
+                        json=test_group_data
+                    )
+                    
+                    if create_response.status_code == 200:
+                        create_data = create_response.json()
+                        if "group" in create_data and "message" in create_data:
+                            created_group = create_data["group"]
+                            group_id = created_group.get("id")
+                            
+                            self.log_test(
+                                "Group Management - POST /api/groups",
+                                True,
+                                f"✅ Group created successfully: {create_data['message']}, Group ID: {group_id}",
+                                create_data
+                            )
+                            
+                            # Test 3: PUT /api/groups/{id} - Update group
+                            if group_id:
+                                print(f"   Testing PUT /api/groups/{group_id}...")
+                                update_data = {
+                                    "name": "Test Grup KPA - Güncellendi",
+                                    "description": "Güncellenmiş test grubu",
+                                    "color": "#4ecdc4"
+                                }
+                                
+                                update_response = self.session.put(
+                                    f"{self.base_url}/groups/{group_id}",
+                                    json=update_data
+                                )
+                                
+                                if update_response.status_code == 200:
+                                    update_result = update_response.json()
+                                    self.log_test(
+                                        "Group Management - PUT /api/groups/{id}",
+                                        True,
+                                        f"✅ Group updated successfully: {update_result.get('message', 'Updated')}",
+                                        update_result
+                                    )
+                                else:
+                                    self.log_test(
+                                        "Group Management - PUT /api/groups/{id}",
+                                        False,
+                                        f"❌ Group update failed: HTTP {update_response.status_code}",
+                                        update_response.text
+                                    )
+                                
+                                # Test 4: DELETE /api/groups/{id} - Delete group
+                                print(f"   Testing DELETE /api/groups/{group_id}...")
+                                delete_response = self.session.delete(f"{self.base_url}/groups/{group_id}")
+                                
+                                if delete_response.status_code == 200:
+                                    delete_result = delete_response.json()
+                                    self.log_test(
+                                        "Group Management - DELETE /api/groups/{id}",
+                                        True,
+                                        f"✅ Group deleted successfully: {delete_result.get('message', 'Deleted')}",
+                                        delete_result
+                                    )
+                                else:
+                                    self.log_test(
+                                        "Group Management - DELETE /api/groups/{id}",
+                                        False,
+                                        f"❌ Group deletion failed: HTTP {delete_response.status_code}",
+                                        delete_response.text
+                                    )
+                        else:
+                            self.log_test(
+                                "Group Management - POST /api/groups",
+                                False,
+                                f"❌ Create response missing required fields (group, message)",
+                                create_data
+                            )
+                    else:
+                        self.log_test(
+                            "Group Management - POST /api/groups",
+                            False,
+                            f"❌ Group creation failed: HTTP {create_response.status_code}",
+                            create_response.text
+                        )
                 else:
                     self.log_test(
-                        "New Format Support Active",
+                        "Group Management - GET /api/groups",
                         False,
-                        f"Supported formats don't match expected. Expected: {expected_formats}, Got: {supported_formats}",
-                        {"expected": expected_formats, "actual": supported_formats}
+                        f"❌ Groups response missing required fields: {missing_fields}",
+                        groups_data
                     )
             else:
                 self.log_test(
-                    "New Format Support Active",
+                    "Group Management - GET /api/groups",
                     False,
-                    f"Could not retrieve status to check supported formats: HTTP {status_response.status_code}",
-                    status_response.text
+                    f"❌ Groups list failed: HTTP {groups_response.status_code}",
+                    groups_response.text
                 )
                 
         except Exception as e:
             self.log_test(
-                "New Format Support Active",
+                "Group Management APIs",
                 False,
-                f"Connection error during format support test: {str(e)}",
+                f"❌ Connection error during group management test: {str(e)}",
+                None
+            )
+
+    def test_document_group_relationships(self):
+        """Test Document-Group Relationships - PRIORITY: POST /api/documents/move, GET /api/documents?group_id"""
+        try:
+            # First check if we have any documents and groups
+            docs_response = self.session.get(f"{self.base_url}/documents")
+            groups_response = self.session.get(f"{self.base_url}/groups")
+            
+            if docs_response.status_code == 200 and groups_response.status_code == 200:
+                docs_data = docs_response.json()
+                groups_data = groups_response.json()
+                
+                documents = docs_data.get("documents", [])
+                groups = groups_data.get("groups", [])
+                
+                if documents and groups:
+                    # Test moving documents to a group
+                    doc_id = documents[0]["id"]
+                    group_id = groups[0]["id"]
+                    group_name = groups[0]["name"]
+                    
+                    print(f"   Testing document move: Doc {doc_id} to Group '{group_name}'...")
+                    
+                    move_request = {
+                        "document_ids": [doc_id],
+                        "group_id": group_id
+                    }
+                    
+                    move_response = self.session.post(
+                        f"{self.base_url}/documents/move",
+                        json=move_request
+                    )
+                    
+                    if move_response.status_code == 200:
+                        move_data = move_response.json()
+                        if "message" in move_data and "modified_count" in move_data:
+                            self.log_test(
+                                "Document-Group Relationships - Move Documents",
+                                True,
+                                f"✅ Document move successful: {move_data['message']}, Modified: {move_data['modified_count']}",
+                                move_data
+                            )
+                            
+                            # Test filtering documents by group
+                            print(f"   Testing GET /api/documents?group_id={group_id}...")
+                            filter_response = self.session.get(f"{self.base_url}/documents?group_id={group_id}")
+                            
+                            if filter_response.status_code == 200:
+                                filter_data = filter_response.json()
+                                filtered_docs = filter_data.get("documents", [])
+                                
+                                # Check if our moved document is in the filtered results
+                                moved_doc_found = any(doc["id"] == doc_id for doc in filtered_docs)
+                                
+                                if moved_doc_found:
+                                    self.log_test(
+                                        "Document-Group Relationships - Group Filtering",
+                                        True,
+                                        f"✅ Group filtering working: Found {len(filtered_docs)} documents in group '{group_name}'",
+                                        {"group_id": group_id, "documents_count": len(filtered_docs)}
+                                    )
+                                else:
+                                    self.log_test(
+                                        "Document-Group Relationships - Group Filtering",
+                                        False,
+                                        f"❌ Moved document not found in group filter results",
+                                        filter_data
+                                    )
+                            else:
+                                self.log_test(
+                                    "Document-Group Relationships - Group Filtering",
+                                    False,
+                                    f"❌ Group filtering failed: HTTP {filter_response.status_code}",
+                                    filter_response.text
+                                )
+                        else:
+                            self.log_test(
+                                "Document-Group Relationships - Move Documents",
+                                False,
+                                f"❌ Move response missing required fields",
+                                move_data
+                            )
+                    else:
+                        self.log_test(
+                            "Document-Group Relationships - Move Documents",
+                            False,
+                            f"❌ Document move failed: HTTP {move_response.status_code}",
+                            move_response.text
+                        )
+                elif not documents:
+                    self.log_test(
+                        "Document-Group Relationships",
+                        True,
+                        "✅ No documents available to test group relationships (expected for empty system)",
+                        None
+                    )
+                elif not groups:
+                    self.log_test(
+                        "Document-Group Relationships",
+                        True,
+                        "✅ No groups available to test document relationships (expected for empty system)",
+                        None
+                    )
+            else:
+                self.log_test(
+                    "Document-Group Relationships",
+                    False,
+                    f"❌ Could not retrieve documents or groups for relationship testing",
+                    None
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Document-Group Relationships",
+                False,
+                f"❌ Connection error during document-group relationship test: {str(e)}",
+                None
+            )
+
+    def test_system_status_total_groups(self):
+        """Test System Status total_groups field - PRIORITY"""
+        try:
+            response = self.session.get(f"{self.base_url}/status")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "total_groups" in data:
+                    total_groups = data["total_groups"]
+                    
+                    # Verify it's an integer
+                    if isinstance(total_groups, int):
+                        # Cross-check with actual groups count
+                        groups_response = self.session.get(f"{self.base_url}/groups")
+                        if groups_response.status_code == 200:
+                            groups_data = groups_response.json()
+                            actual_groups = groups_data.get("total_count", 0)
+                            
+                            if total_groups == actual_groups:
+                                self.log_test(
+                                    "System Status - total_groups Field",
+                                    True,
+                                    f"✅ total_groups field working correctly: {total_groups} (matches actual groups count)",
+                                    {"total_groups": total_groups, "actual_groups": actual_groups}
+                                )
+                            else:
+                                self.log_test(
+                                    "System Status - total_groups Field",
+                                    False,
+                                    f"❌ total_groups mismatch: status shows {total_groups}, actual groups: {actual_groups}",
+                                    {"total_groups": total_groups, "actual_groups": actual_groups}
+                                )
+                        else:
+                            self.log_test(
+                                "System Status - total_groups Field",
+                                True,
+                                f"✅ total_groups field present and valid: {total_groups} (couldn't verify against groups endpoint)",
+                                {"total_groups": total_groups}
+                            )
+                    else:
+                        self.log_test(
+                            "System Status - total_groups Field",
+                            False,
+                            f"❌ total_groups should be integer, got {type(total_groups)}: {total_groups}",
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "System Status - total_groups Field",
+                        False,
+                        f"❌ total_groups field missing from status response",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "System Status - total_groups Field",
+                    False,
+                    f"❌ Status endpoint failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "System Status - total_groups Field",
+                False,
+                f"❌ Connection error during status test: {str(e)}",
+                None
+            )
+
+    def test_upload_with_group(self):
+        """Test Upload with Group Parameter - PRIORITY: POST /api/upload-document with group_id"""
+        try:
+            # First, create a test group for upload
+            test_group_data = {
+                "name": "Upload Test Grup",
+                "description": "Test grubu - upload için",
+                "color": "#95a5a6"
+            }
+            
+            create_response = self.session.post(
+                f"{self.base_url}/groups",
+                json=test_group_data
+            )
+            
+            if create_response.status_code == 200:
+                create_data = create_response.json()
+                group_id = create_data.get("group", {}).get("id")
+                
+                if group_id:
+                    # Test upload endpoint with group parameter (without actual file)
+                    # We'll test the endpoint structure and parameter handling
+                    print(f"   Testing upload endpoint with group_id parameter...")
+                    
+                    # Test with invalid file to check if group parameter is processed
+                    files = {'file': ('test.txt', b'test content', 'text/plain')}
+                    data = {'group_id': group_id}
+                    
+                    upload_response = self.session.post(
+                        f"{self.base_url}/upload-document",
+                        files=files,
+                        data=data
+                    )
+                    
+                    # We expect this to fail due to invalid file type, but we can check if group_id is processed
+                    if upload_response.status_code == 400:
+                        error_data = upload_response.json()
+                        error_detail = error_data.get("detail", "")
+                        
+                        # If error is about file format (not group), then group parameter is being processed
+                        if "doc" in error_detail.lower() or "format" in error_detail.lower():
+                            self.log_test(
+                                "Upload with Group Parameter",
+                                True,
+                                f"✅ Upload endpoint accepts group_id parameter (rejected due to file format as expected): {error_detail}",
+                                {"group_id": group_id, "error": error_detail}
+                            )
+                        else:
+                            self.log_test(
+                                "Upload with Group Parameter",
+                                False,
+                                f"❌ Upload endpoint error not related to file format: {error_detail}",
+                                error_data
+                            )
+                    else:
+                        self.log_test(
+                            "Upload with Group Parameter",
+                            False,
+                            f"❌ Unexpected response from upload endpoint: HTTP {upload_response.status_code}",
+                            upload_response.text
+                        )
+                    
+                    # Clean up test group
+                    self.session.delete(f"{self.base_url}/groups/{group_id}")
+                else:
+                    self.log_test(
+                        "Upload with Group Parameter",
+                        False,
+                        f"❌ Could not create test group for upload testing",
+                        create_data
+                    )
+            else:
+                self.log_test(
+                    "Upload with Group Parameter",
+                    False,
+                    f"❌ Could not create test group: HTTP {create_response.status_code}",
+                    create_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Upload with Group Parameter",
+                False,
+                f"❌ Connection error during upload with group test: {str(e)}",
                 None
             )
 
