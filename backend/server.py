@@ -697,11 +697,22 @@ async def get_chat_history(session_id: str):
         raise HTTPException(status_code=500, detail=f"Chat geçmişi alınırken hata: {str(e)}")
 
 @api_router.get("/documents")
-async def get_documents():
-    """Yüklenmiş dokümanları listele (gelişmiş)"""
+async def get_documents(group_id: Optional[str] = None):
+    """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
     try:
+        # Filtre oluştur
+        filter_query = {}
+        if group_id:
+            if group_id == "ungrouped":
+                filter_query["$or"] = [
+                    {"group_id": {"$exists": False}},
+                    {"group_id": None}
+                ]
+            else:
+                filter_query["group_id"] = group_id
+        
         # Dokümanları getir (içerik hariç)
-        documents = await db.documents.find({}, {
+        documents = await db.documents.find(filter_query, {
             "content": 0,  # İçeriği dahil etme (çok büyük olabilir)
             "chunks": 0    # Chunk'ları dahil etme
         }).sort("created_at", -1).to_list(100)
@@ -719,6 +730,9 @@ async def get_documents():
                 "embeddings_created": doc.get("embeddings_created", False),
                 "upload_status": doc.get("upload_status", "unknown"),
                 "error_message": doc.get("error_message"),
+                "group_id": doc.get("group_id"),
+                "group_name": doc.get("group_name"),
+                "tags": doc.get("tags", []),
                 "created_at": doc.get("created_at"),
                 "processed_at": doc.get("processed_at"),
                 "processing_time": None
@@ -734,22 +748,45 @@ async def get_documents():
             
             processed_documents.append(doc_info)
         
-        # İstatistikler
+        # İstatistikler (grup bazında)
         total_count = len(processed_documents)
         completed_count = len([d for d in processed_documents if d["embeddings_created"]])
         processing_count = len([d for d in processed_documents if d["upload_status"] == "processing"])
         failed_count = len([d for d in processed_documents if d["upload_status"] == "failed"])
         total_size = sum(d["file_size"] for d in processed_documents)
         
+        # Grup dağılımı
+        grouped_documents = {}
+        ungrouped_documents = []
+        
+        for doc in processed_documents:
+            if doc["group_id"]:
+                group_name = doc["group_name"] or "Bilinmeyen Grup"
+                if group_name not in grouped_documents:
+                    grouped_documents[group_name] = {
+                        "group_id": doc["group_id"],
+                        "group_name": group_name,
+                        "documents": [],
+                        "count": 0
+                    }
+                grouped_documents[group_name]["documents"].append(doc)
+                grouped_documents[group_name]["count"] += 1
+            else:
+                ungrouped_documents.append(doc)
+        
         return {
             "documents": processed_documents,
+            "grouped_documents": grouped_documents,
+            "ungrouped_documents": ungrouped_documents,
             "statistics": {
                 "total_count": total_count,
                 "completed_count": completed_count,
                 "processing_count": processing_count,
                 "failed_count": failed_count,
                 "total_size": total_size,
-                "total_size_human": get_file_size_human_readable(total_size)
+                "total_size_human": get_file_size_human_readable(total_size),
+                "group_count": len(grouped_documents),
+                "ungrouped_count": len(ungrouped_documents)
             }
         }
         
