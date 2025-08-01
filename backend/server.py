@@ -724,12 +724,27 @@ async def ask_question(request: QuestionRequest):
             session_id
         )
         
+        # Kaynak dokümanları belirle (chunk'lardan doküman adlarını çıkar)
+        source_documents = []
+        if similar_chunks:
+            # Her chunk için hangi dokümanlardan geldiğini bul
+            for chunk in similar_chunks:
+                # Dokümanları chunk içeriklerine göre bul
+                docs = await db.documents.find(
+                    {"chunks": {"$in": [chunk]}}, 
+                    {"filename": 1}
+                ).to_list(100)
+                for doc in docs:
+                    if doc["filename"] not in source_documents:
+                        source_documents.append(doc["filename"])
+        
         # Chat geçmişini kaydet
         chat_session = ChatSession(
             session_id=session_id,
             question=request.question,
             answer=answer,
-            context_chunks=similar_chunks
+            context_chunks=similar_chunks,
+            source_documents=source_documents
         )
         
         await db.chat_sessions.insert_one(chat_session.dict())
