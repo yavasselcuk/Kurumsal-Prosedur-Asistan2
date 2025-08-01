@@ -592,6 +592,25 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">📤 Doküman Yükleme</h2>
               
+              {/* Grup Seçimi */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Yüklenecek Grup:
+                </label>
+                <select
+                  value={selectedGroup}
+                  onChange={(e) => setSelectedGroup(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">Grup seçmeden yükle</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      📁 {group.name} ({group.document_count} doküman)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                 <div className="space-y-4">
                   <div className="flex flex-col items-center space-y-3">
@@ -640,6 +659,80 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Grup Yönetimi */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">📁 Grup Yönetimi</h2>
+                <div className="space-x-2">
+                  <button
+                    onClick={() => setShowGroupModal(true)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  >
+                    ➕ Yeni Grup
+                  </button>
+                  {selectedDocuments.length > 0 && (
+                    <button
+                      onClick={() => setShowMoveModal(true)}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      📂 Taşı ({selectedDocuments.length})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Grup Filtreleri */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  onClick={() => {setSelectedGroup('all'); fetchDocuments();}}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    selectedGroup === 'all'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  📋 Tümü ({documents.length})
+                </button>
+                <button
+                  onClick={() => {setSelectedGroup('ungrouped'); fetchDocuments();}}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    selectedGroup === 'ungrouped'
+                      ? 'bg-gray-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  📄 Gruplandırılmamış
+                </button>
+                {groups.map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => {setSelectedGroup(group.id); fetchDocuments();}}
+                    className={`px-3 py-1 rounded-full text-sm flex items-center space-x-1 ${
+                      selectedGroup === group.id
+                        ? 'text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    style={{
+                      backgroundColor: selectedGroup === group.id ? group.color : undefined
+                    }}
+                  >
+                    <span>📁</span>
+                    <span>{group.name} ({group.document_count})</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteGroup(group.id, group.name);
+                      }}
+                      className="ml-1 text-red-500 hover:text-red-700"
+                      title="Grubu Sil"
+                    >
+                      ❌
+                    </button>
+                  </button>
+                ))}
               </div>
             </div>
 
