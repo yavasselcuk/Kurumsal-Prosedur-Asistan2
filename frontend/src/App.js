@@ -170,20 +170,27 @@ function App() {
     }
 
     try {
+      console.log('Deleting group:', groupId, groupName);
+      console.log('Backend URL:', backendUrl);
+      
       const response = await fetch(`${backendUrl}/api/groups/${groupId}?move_documents=true`, {
         method: 'DELETE',
       });
 
+      console.log('Group delete response status:', response.status);
       const data = await response.json();
+      console.log('Group delete response data:', data);
 
       if (response.ok) {
-        fetchGroups();
-        fetchDocuments();
-        alert(data.message);
+        await fetchGroups();
+        await fetchDocuments();
+        alert(data.message || 'Grup başarıyla silindi.');
       } else {
-        alert(`Hata: ${data.detail}`);
+        console.error('Group delete failed:', data);
+        alert(`Hata: ${data.detail || data.message || 'Bilinmeyen hata'}`);
       }
     } catch (error) {
+      console.error('Group delete error:', error);
       alert(`Grup silme hatası: ${error.message}`);
     }
   };
