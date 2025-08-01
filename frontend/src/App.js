@@ -427,6 +427,26 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                         {systemStatus.faiss_index_ready ? 'Aktif' : 'Hazırlanıyor'}
                       </span>
                     </div>
+                    
+                    {systemStatus.supported_formats && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Desteklenen Formatlar</span>
+                        <span className="text-xs font-medium text-gray-700">
+                          {systemStatus.supported_formats.join(', ').toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {systemStatus.processing_queue !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">İşlem Kuyruğu</span>
+                        <span className={`font-semibold ${
+                          systemStatus.processing_queue > 0 ? 'text-orange-600' : 'text-gray-600'
+                        }`}>
+                          {systemStatus.processing_queue}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
