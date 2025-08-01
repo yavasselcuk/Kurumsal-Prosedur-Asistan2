@@ -14,6 +14,8 @@ import asyncio
 import json
 import aiofiles
 from docx import Document
+import docx2txt
+import textract
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -21,6 +23,7 @@ import pickle
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import tempfile
 import io
+import mimetypes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
