@@ -453,14 +453,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Enhanced System Status Endpoint Test"
-    - "Enhanced Documents List Endpoint Test"
-    - "New Format Support Validation"
-    - "Enhanced Document Delete Operations Test"
-    - "Group Management APIs Test"
-    - "Document-Group Relationships Test"
-    - "System Status Total Groups Field Test"
-    - "Upload with Group Parameter Test"
+    - "DOC Processing System Test"
+    - "Document Processing Pipeline Test"
+    - "Enhanced Error Handling Test"
+    - "File Upload Validation Enhanced Test"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
