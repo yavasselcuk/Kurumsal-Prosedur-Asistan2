@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Kurumsal Prosedür Asistanı (KPA) backend API'lerini test et: 1. GET /api/status - sistem durumunu döndürmeli, 2. GET /api/documents - yüklenmiş dokümanları listele, 3. GET /api/ - hoş geldin mesajı döndürmeli. Bu sistemi Word dokümanları yükleyip AI ile soru-cevap yapan bir RAG sistemi."
+user_problem_statement: "Güncellenmiş Kurumsal Prosedür Asistanı backend API'lerini test et: YENİ ÖZELLİKLER TESTİ: 1. Sistem Durumu Kontrolü (GET /api/status) - yeni alanları test et (supported_formats: ['.doc', '.docx'], processing_queue: 0), 2. Gelişmiş Doküman Listesi (GET /api/documents) - yeni format bilgilerini ve statistics bölümünü test et, 3. Yeni Format Desteği (.doc ve .docx desteğinin API'de aktif olduğunu doğrula), 4. Gelişmiş Silme İşlemleri (DELETE /api/documents/{id} - enhanced response test et)"
 
 backend:
   - task: "Root API Endpoint Test"
