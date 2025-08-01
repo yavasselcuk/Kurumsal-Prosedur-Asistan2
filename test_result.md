@@ -165,17 +165,53 @@ backend:
           agent: "testing"
           comment: "✅ Embedding model (all-MiniLM-L6-v2) successfully loaded as confirmed by /api/status endpoint returning embedding_model_loaded: true."
 
-  - task: "FAISS Index Status"
+  - task: "Enhanced System Status Endpoint Test"
     implemented: true
-    working: "NA"
+    working: true
     file: "backend/server.py"
     stuck_count: 0
-    priority: "medium"
+    priority: "high"
     needs_retesting: false
     status_history:
-        - working: "NA"
+        - working: true
           agent: "testing"
-          comment: "ℹ️ FAISS index not ready (faiss_index_ready: false) which is expected since no documents have been uploaded yet. This is normal behavior for an empty system."
+          comment: "✅ GET /api/status endpoint enhanced features working perfectly. New fields validated: supported_formats: ['.doc', '.docx'] ✓, processing_queue: 0 ✓. All existing fields still working: total_documents (9), total_chunks (12), embedding_model_loaded (True), faiss_index_ready (True). Enhanced SystemStatus model fully functional."
+
+  - task: "Enhanced Documents List Endpoint Test"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ GET /api/documents endpoint enhanced features working excellently. New statistics section validated with all required fields: total_count (9), completed_count (9), processing_count (0), failed_count (0), total_size (0), total_size_human ('0 B'). Document structure includes new fields: file_type, file_size, chunk_count. Enhanced response structure fully functional."
+
+  - task: "New Format Support Validation"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ .doc and .docx format support is fully active and validated. Status endpoint correctly reports supported_formats: ['.doc', '.docx']. File validation working perfectly - correctly rejects unsupported formats (.txt) with appropriate error message: 'Sadece .doc ve .docx formatındaki dosyalar desteklenir'."
+
+  - task: "Enhanced Document Delete Operations Test"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ DELETE /api/documents/{id} enhanced response structure working perfectly. DocumentDeleteResponse model validated with all required fields: message, document_id, deleted_chunks. Enhanced delete functionality fully operational with proper error handling for non-existent documents (404 response)."
 
 frontend:
   - task: "Homepage and Navigation Test"
