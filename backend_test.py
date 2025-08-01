@@ -11,7 +11,7 @@ from typing import Dict, Any, List
 import time
 
 # Backend URL from environment
-BACKEND_URL = "https://60a0fa58-5a2e-4151-bb1b-8b3af8226ea9.preview.emergentagent.com/api"
+BACKEND_URL = "https://f2ead008-c379-4406-a4b1-d910c3eaf61c.preview.emergentagent.com/api"
 
 class KPABackendTester:
     def __init__(self):

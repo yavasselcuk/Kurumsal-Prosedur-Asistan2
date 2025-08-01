@@ -151,7 +151,7 @@ backend:
     status_history:
         - working: true
           agent: "testing"
-          comment: "✅ Backend server connectivity confirmed. Server responding at https://60a0fa58-5a2e-4151-bb1b-8b3af8226ea9.preview.emergentagent.com/api with HTTP 200."
+          comment: "✅ Backend server connectivity confirmed. Server responding at https://f2ead008-c379-4406-a4b1-d910c3eaf61c.preview.emergentagent.com/api with HTTP 200."
 
   - task: "Embedding Model Loading"
     implemented: true
