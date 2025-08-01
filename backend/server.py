@@ -50,10 +50,28 @@ api_router = APIRouter(prefix="/api")
 class DocumentUpload(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     filename: str
+    file_type: str  # .doc, .docx
+    file_size: int  # bytes
     content: str
     chunks: List[str]
+    chunk_count: int
     embeddings_created: bool = False
+    upload_status: str = "processing"  # processing, completed, failed
+    error_message: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: Optional[datetime] = None
+
+class DocumentInfo(BaseModel):
+    id: str
+    filename: str
+    file_type: str
+    file_size: int
+    chunk_count: int
+    embeddings_created: bool
+    upload_status: str
+    error_message: Optional[str] = None
+    created_at: datetime
+    processed_at: Optional[datetime] = None
 
 class QuestionRequest(BaseModel):
     question: str
@@ -65,6 +83,7 @@ class ChatSession(BaseModel):
     question: str
     answer: str
     context_chunks: List[str]
+    source_documents: List[str]  # Kaynak doküman adları
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class SystemStatus(BaseModel):
@@ -72,6 +91,13 @@ class SystemStatus(BaseModel):
     total_chunks: int
     embedding_model_loaded: bool
     faiss_index_ready: bool
+    supported_formats: List[str]
+    processing_queue: int
+
+class DocumentDeleteResponse(BaseModel):
+    message: str
+    document_id: str
+    deleted_chunks: int
 
 # Helper functions
 async def extract_text_from_docx(file_content: bytes) -> str:
