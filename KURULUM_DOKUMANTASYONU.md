@@ -253,26 +253,58 @@ tree /opt/kpa || ls -la /opt/kpa
 # └── README.md
 ```
 
-### 2. Backend Kurulumu
+### 2. Backend Kurulumu (Ubuntu 24.04 LTS)
 
 ```bash
-cd backend
+cd /opt/kpa/backend
 
-# Python sanal ortam oluşturun:
-python3.11 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
+# Python sanal ortam oluşturun (Ubuntu 24.04'te Python 3.12)
+python3 -m venv venv
 
-# Bağımlılıkları yükleyin:
+# Sanal ortamı aktifleştirin
+source venv/bin/activate
+
+# Python ve pip versiyonlarını kontrol edin
+python --version  # Python 3.12.x
+pip --version     # pip 24.x
+
+# Pip'i güncelleyin
 pip install --upgrade pip
+
+# Sistem bağımlılıklarını kurun (gerekli C kütüphaneleri)
+sudo apt install -y python3-dev python3-setuptools python3-wheel
+sudo apt install -y build-essential libssl-dev libffi-dev libblas3 liblapack3
+sudo apt install -y libatlas-base-dev gfortran  # NumPy/SciPy için
+
+# Python bağımlılıklarını yükleyin
 pip install -r requirements.txt
 
-# Özel kütüphane kurulumu:
+# Özel kütüphane kurulumu
 pip install emergentintegrations --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
 
-# Environment variables ayarlayın:
-cp .env.example .env
+# Kurulumu doğrulayın
+python -c "import fastapi; print('FastAPI:', fastapi.__version__)"
+python -c "import sentence_transformers; print('SentenceTransformers: OK')"
+python -c "import faiss; print('FAISS: OK')"
+python -c "from emergentintegrations.llm.chat import LlmChat; print('EmergentIntegrations: OK')"
+
+# Environment variables ayarlayın
+cp .env.example .env 2>/dev/null || true
 nano .env
+```
+
+#### Backend Test ve Geliştirme
+
+```bash
+# Backend'i development modunda çalıştırın
+cd /opt/kpa/backend
+source venv/bin/activate
+
+# Development server başlatın
+uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+
+# Başka bir terminalde test edin
+curl http://localhost:8001/api/status
 ```
 
 ### 3. Environment Variables (.env)
