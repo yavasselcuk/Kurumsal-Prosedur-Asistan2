@@ -416,11 +416,12 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests"""
-        print("=" * 60)
-        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS")
-        print("=" * 60)
+        """Run all backend tests including NEW FEATURES"""
+        print("=" * 70)
+        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - ENHANCED")
+        print("=" * 70)
         print(f"Testing backend at: {self.base_url}")
+        print("Testing NEW FEATURES: Enhanced status, document management, format support")
         print()
         
         # Test connectivity first
@@ -428,10 +429,17 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Skipping other tests.")
             return self.get_summary()
         
-        # Run specific API tests
+        # Run specific API tests (original)
         self.test_root_endpoint()
-        self.test_status_endpoint()
-        self.test_documents_endpoint()
+        
+        # Run enhanced tests for NEW FEATURES
+        self.test_status_endpoint()  # Enhanced with new fields
+        self.test_documents_endpoint()  # Enhanced with statistics
+        
+        # Run NEW FEATURE tests
+        self.test_new_format_support_active()
+        self.test_file_validation()
+        self.test_document_delete_response_structure()
         
         return self.get_summary()
 
