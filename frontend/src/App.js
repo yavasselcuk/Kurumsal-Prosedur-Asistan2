@@ -59,15 +59,25 @@ function App() {
 
   const fetchDocuments = async () => {
     try {
-      const groupFilter = selectedGroup === 'all' ? '' : `?group_id=${selectedGroup}`;
-      const response = await fetch(`${backendUrl}/api/documents${groupFilter}`);
-      const data = await response.json();
-      setDocuments(data.documents || []);
+      let url = `${backendUrl}/api/documents`;
       
-      // İstatistikleri de saklayabiliriz
-      if (data.statistics) {
-        // İstatistikleri state'e ekleyebiliriz
-        console.log('Document statistics:', data.statistics);
+      // Grup filtresi ekle
+      if (selectedGroup && selectedGroup !== 'all') {
+        url += `?group_id=${selectedGroup}`;
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setDocuments(data.documents || []);
+        
+        // İstatistikleri de saklayabiliriz
+        if (data.statistics) {
+          console.log('Document statistics:', data.statistics);
+        }
+      } else {
+        console.error('API Error:', data);
       }
     } catch (error) {
       console.error('Dokümanlar alınamadı:', error);
