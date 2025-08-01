@@ -1,0 +1,47 @@
+{
+  "name": "kurumsal-prosedur-asistani",
+  "version": "1.0.0",
+  "description": "AI destekli kurumsal prosedür soru-cevap sistemi",
+  "main": "index.js",
+  "scripts": {
+    "install-backend": "cd backend && pip install -r requirements.txt && pip install emergentintegrations --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/",
+    "install-frontend": "cd frontend && yarn install",
+    "setup": "npm run install-backend && npm run install-frontend",
+    "start-backend": "cd backend && source venv/bin/activate && uvicorn server:app --host 0.0.0.0 --port 8001 --reload",
+    "start-frontend": "cd frontend && yarn start",
+    "build-frontend": "cd frontend && yarn build",
+    "test-backend": "python backend_test.py",
+    "dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\"",
+    "build": "npm run build-frontend",
+    "deploy": "npm run build && echo 'Build completed. Deploy build folder to your hosting service.'"
+  },
+  "keywords": [
+    "ai",
+    "nlp",
+    "document-processing",
+    "question-answering",
+    "rag",
+    "gemini",
+    "react",
+    "fastapi",
+    "mongodb",
+    "türkçe"
+  ],
+  "author": "KPA Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.11.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/[username]/kurumsal-prosedur-asistani.git"
+  },
+  "bugs": {
+    "url": "https://github.com/[username]/kurumsal-prosedur-asistani/issues"
+  },
+  "homepage": "https://github.com/[username]/kurumsal-prosedur-asistani#readme"
+}
