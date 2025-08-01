@@ -28,20 +28,55 @@
 
 ### 2. Gerekli Yazılımlar
 
+#### Ubuntu 24.04 LTS için Özel Kurulum
+
 ```bash
-# Ubuntu/Debian için:
+# Sistem güncellemesi
+sudo apt update && sudo apt upgrade -y
+
+# Temel geliştirme araçları
+sudo apt install -y build-essential curl wget git vim nano htop
+
+# Python 3.11+ (Ubuntu 24.04'te varsayılan Python 3.12)
+sudo apt install -y python3 python3-pip python3-venv python3-dev
+
+# Python versiyonunu kontrol edin
+python3 --version  # Python 3.12.x çıktısı beklenir
+
+# Node.js 20.x LTS kurulumu (Ubuntu 24.04 için önerilen)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Node.js versiyonunu kontrol edin
+node --version    # v20.x.x
+npm --version     # 10.x.x
+
+# Yarn package manager
+npm install -g yarn
+
+# PM2 process manager (production için)
+npm install -g pm2
+
+# Git konfigürasyonu (opsiyonel)
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+```
+
+#### Diğer Dağıtımlar için
+
+```bash
+# Ubuntu/Debian (Eski sürümler) için:
 sudo apt update
 sudo apt install -y python3.11 python3.11-pip nodejs npm mongodb git
 
 # CentOS/RHEL için:
 sudo yum install -y python3.11 python3.11-pip nodejs npm mongodb-org git
 
-# Node.js 18+ gerekli:
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
+# Arch Linux için:
+sudo pacman -S python python-pip nodejs npm mongodb git
 
-# Yarn kurulumu (önerilen):
-npm install -g yarn
+# macOS için (Homebrew):
+brew install python@3.11 node mongodb/brew/mongodb-community git
 ```
 
 ### 3. MongoDB Kurulumu
