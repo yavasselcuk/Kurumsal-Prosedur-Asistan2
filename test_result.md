@@ -354,11 +354,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Homepage and Navigation Test"
-    - "System Status Display"
-    - "Tab Navigation System"
-    - "Document Management Interface"
-    - "Chat Interface and Q&A System"
+    - "Enhanced System Status Endpoint Test"
+    - "Enhanced Documents List Endpoint Test"
+    - "New Format Support Validation"
+    - "Enhanced Document Delete Operations Test"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
