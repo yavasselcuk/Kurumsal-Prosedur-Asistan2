@@ -100,28 +100,106 @@ class DocumentDeleteResponse(BaseModel):
     deleted_chunks: int
 
 # Helper functions
-async def extract_text_from_docx(file_content: bytes) -> str:
-    """Word dokümanından metin çıkarma"""
+async def extract_text_from_document(file_content: bytes, filename: str) -> str:
+    """Word dokümanından metin çıkarma (.doc ve .docx desteği)"""
     try:
+        file_extension = Path(filename).suffix.lower()
+        
         # Geçici dosya oluştur
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
             temp_file.write(file_content)
             temp_file_path = temp_file.name
         
-        # Word dokümanını oku
-        doc = Document(temp_file_path)
-        text_content = []
+        extracted_text = ""
         
-        for paragraph in doc.paragraphs:
-            if paragraph.text.strip():
-                text_content.append(paragraph.text.strip())
+        if file_extension == '.docx':
+            # DOCX dosyaları için
+            try:
+                # Method 1: python-docx ile
+                doc = Document(temp_file_path)
+                text_content = []
+                
+                for paragraph in doc.paragraphs:
+                    if paragraph.text.strip():
+                        text_content.append(paragraph.text.strip())
+                
+                # Tablolardan da metin çıkar
+                for table in doc.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            if cell.text.strip():
+                                text_content.append(cell.text.strip())
+                
+                extracted_text = '\n'.join(text_content)
+                
+                # Eğer python-docx ile metin çıkarılamazsa, docx2txt kullan
+                if not extracted_text.strip():
+                    extracted_text = docx2txt.process(temp_file_path)
+                    
+            except Exception as e:
+                logging.warning(f"python-docx failed for {filename}, trying docx2txt: {str(e)}")
+                try:
+                    extracted_text = docx2txt.process(temp_file_path)
+                except Exception as e2:
+                    logging.error(f"docx2txt also failed for {filename}: {str(e2)}")
+                    raise HTTPException(status_code=400, detail=f"DOCX işleme hatası: {str(e2)}")
+        
+        elif file_extension == '.doc':
+            # DOC dosyaları için
+            try:
+                # Method 1: textract ile
+                extracted_text = textract.process(temp_file_path).decode('utf-8')
+                
+            except Exception as e:
+                logging.warning(f"textract failed for {filename}: {str(e)}")
+                try:
+                    # Method 2: Alternatif olarak antiword (eğer sistem'de kuruluysa)
+                    import subprocess
+                    result = subprocess.run(['antiword', temp_file_path], 
+                                          capture_output=True, text=True, check=True)
+                    extracted_text = result.stdout
+                    
+                except (subprocess.CalledProcessError, FileNotFoundError) as e2:
+                    logging.error(f"antiword also failed for {filename}: {str(e2)}")
+                    raise HTTPException(status_code=400, detail=f"DOC işleme hatası. Lütfen dosyayı DOCX formatında yükleyin.")
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Desteklenmeyen dosya formatı: {file_extension}")
         
         # Geçici dosyayı sil
         os.unlink(temp_file_path)
         
-        return '\n'.join(text_content)
+        if not extracted_text.strip():
+            raise HTTPException(status_code=400, detail="Doküman boş veya metin çıkarılamadı")
+        
+        return extracted_text.strip()
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Word dokümanı işlenirken hata: {str(e)}")
+        # Geçici dosyayı temizle
+        try:
+            os.unlink(temp_file_path)
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Doküman işleme hatası: {str(e)}")
+
+def get_file_size_human_readable(size_bytes: int) -> str:
+    """Dosya boyutunu human-readable formatta döndür"""
+    if size_bytes == 0:
+        return "0 B"
+    size_names = ["B", "KB", "MB", "GB"]
+    i = 0
+    while size_bytes >= 1024 and i < len(size_names) - 1:
+        size_bytes /= 1024.0
+        i += 1
+    return f"{size_bytes:.1f} {size_names[i]}"
+
+def validate_file_type(filename: str) -> bool:
+    """Dosya tipini validate et"""
+    allowed_extensions = {'.doc', '.docx'}
+    file_extension = Path(filename).suffix.lower()
+    return file_extension in allowed_extensions
 
 def split_text_into_chunks(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     """Metni parçalara ayırma"""
@@ -266,7 +344,9 @@ async def get_system_status():
             total_documents=doc_count,
             total_chunks=chunk_count,
             embedding_model_loaded=embedding_model is not None,
-            faiss_index_ready=faiss_index is not None
+            faiss_index_ready=faiss_index is not None,
+            supported_formats=['.doc', '.docx'],
+            processing_queue=0
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sistem durumu alınırken hata: {str(e)}")
@@ -276,14 +356,22 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
     """Word dokümanı yükleme"""
     try:
         # Dosya tipini kontrol et
-        if not file.filename.endswith('.docx'):
-            raise HTTPException(status_code=400, detail="Sadece .docx formatındaki dosyalar desteklenir")
+        if not validate_file_type(file.filename):
+            raise HTTPException(status_code=400, detail="Sadece .doc ve .docx formatındaki dosyalar desteklenir")
         
-        # Dosya içeriğini oku
+        # Dosya boyutunu kontrol et (örnek: 10MB limit)
         file_content = await file.read()
+        file_size = len(file_content)
+        max_size = 10 * 1024 * 1024  # 10MB
+        
+        if file_size > max_size:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Dosya boyutu çok büyük. Maksimum {get_file_size_human_readable(max_size)} olmalıdır."
+            )
         
         # Word dokümanından metin çıkar
-        text_content = await extract_text_from_docx(file_content)
+        text_content = await extract_text_from_document(file_content, file.filename)
         
         if not text_content.strip():
             raise HTTPException(status_code=400, detail="Doküman boş veya okunamıyor")
@@ -294,8 +382,11 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         # Dokümanı veritabanına kaydet
         document = DocumentUpload(
             filename=file.filename,
+            file_type=Path(file.filename).suffix.lower(),
+            file_size=file_size,
             content=text_content,
             chunks=chunks,
+            chunk_count=len(chunks),
             embeddings_created=False
         )
         
@@ -307,6 +398,7 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         return {
             "message": f"Doküman başarıyla yüklendi: {file.filename}",
             "document_id": document.id,
+            "file_size": get_file_size_human_readable(file_size),
             "chunk_count": len(chunks),
             "processing": "Embedding oluşturma işlemi başlatıldı"
         }
