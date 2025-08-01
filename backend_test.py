@@ -75,13 +75,14 @@ class KPABackendTester:
             )
 
     def test_status_endpoint(self):
-        """Test GET /api/status - should return system status"""
+        """Test GET /api/status - should return system status with NEW FEATURES"""
         try:
             response = self.session.get(f"{self.base_url}/status")
             
             if response.status_code == 200:
                 data = response.json()
-                required_fields = ["total_documents", "total_chunks", "embedding_model_loaded", "faiss_index_ready"]
+                # Updated required fields including NEW FEATURES
+                required_fields = ["total_documents", "total_chunks", "embedding_model_loaded", "faiss_index_ready", "supported_formats", "processing_queue"]
                 
                 missing_fields = [field for field in required_fields if field not in data]
                 
@@ -96,31 +97,43 @@ class KPABackendTester:
                         type_errors.append("embedding_model_loaded should be bool")
                     if not isinstance(data["faiss_index_ready"], bool):
                         type_errors.append("faiss_index_ready should be bool")
+                    if not isinstance(data["supported_formats"], list):
+                        type_errors.append("supported_formats should be list")
+                    if not isinstance(data["processing_queue"], int):
+                        type_errors.append("processing_queue should be int")
                     
-                    if not type_errors:
+                    # NEW FEATURES validation
+                    format_errors = []
+                    if data["supported_formats"] != ['.doc', '.docx']:
+                        format_errors.append(f"supported_formats should be ['.doc', '.docx'], got {data['supported_formats']}")
+                    if data["processing_queue"] != 0:
+                        format_errors.append(f"processing_queue should be 0, got {data['processing_queue']}")
+                    
+                    if not type_errors and not format_errors:
                         self.log_test(
-                            "Status Endpoint (/api/status)",
+                            "Status Endpoint (/api/status) - Enhanced",
                             True,
-                            f"All required fields present with correct types. Documents: {data['total_documents']}, Chunks: {data['total_chunks']}, Model loaded: {data['embedding_model_loaded']}, FAISS ready: {data['faiss_index_ready']}",
+                            f"All required fields present with correct types and values. Documents: {data['total_documents']}, Chunks: {data['total_chunks']}, Model loaded: {data['embedding_model_loaded']}, FAISS ready: {data['faiss_index_ready']}, Supported formats: {data['supported_formats']}, Processing queue: {data['processing_queue']}",
                             data
                         )
                     else:
+                        all_errors = type_errors + format_errors
                         self.log_test(
-                            "Status Endpoint (/api/status)",
+                            "Status Endpoint (/api/status) - Enhanced",
                             False,
-                            f"Type errors: {', '.join(type_errors)}",
+                            f"Validation errors: {', '.join(all_errors)}",
                             data
                         )
                 else:
                     self.log_test(
-                        "Status Endpoint (/api/status)",
+                        "Status Endpoint (/api/status) - Enhanced",
                         False,
                         f"Missing required fields: {', '.join(missing_fields)}",
                         data
                     )
             else:
                 self.log_test(
-                    "Status Endpoint (/api/status)",
+                    "Status Endpoint (/api/status) - Enhanced",
                     False,
                     f"HTTP {response.status_code}: {response.text}",
                     response.text
@@ -128,7 +141,7 @@ class KPABackendTester:
                 
         except Exception as e:
             self.log_test(
-                "Status Endpoint (/api/status)",
+                "Status Endpoint (/api/status) - Enhanced",
                 False,
                 f"Connection error: {str(e)}",
                 None
