@@ -148,38 +148,70 @@ class KPABackendTester:
             )
 
     def test_documents_endpoint(self):
-        """Test GET /api/documents - should list uploaded documents"""
+        """Test GET /api/documents - should list uploaded documents with ENHANCED FEATURES"""
         try:
             response = self.session.get(f"{self.base_url}/documents")
             
             if response.status_code == 200:
                 data = response.json()
                 
-                if "documents" in data and "total_count" in data:
-                    if isinstance(data["documents"], list) and isinstance(data["total_count"], int):
+                # Check for enhanced structure
+                required_fields = ["documents", "statistics"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    # Validate documents structure
+                    documents_valid = isinstance(data["documents"], list)
+                    
+                    # Validate statistics structure
+                    statistics = data.get("statistics", {})
+                    required_stats = ["total_count", "completed_count", "processing_count", "failed_count", "total_size", "total_size_human"]
+                    missing_stats = [stat for stat in required_stats if stat not in statistics]
+                    
+                    # Check document structure if any documents exist
+                    document_structure_valid = True
+                    document_errors = []
+                    
+                    if data["documents"]:
+                        for i, doc in enumerate(data["documents"][:3]):  # Check first 3 documents
+                            required_doc_fields = ["id", "filename", "file_type", "file_size", "chunk_count"]
+                            missing_doc_fields = [field for field in required_doc_fields if field not in doc]
+                            if missing_doc_fields:
+                                document_errors.append(f"Document {i}: missing {missing_doc_fields}")
+                                document_structure_valid = False
+                    
+                    if documents_valid and not missing_stats and document_structure_valid:
                         self.log_test(
-                            "Documents Endpoint (/api/documents)",
+                            "Documents Endpoint (/api/documents) - Enhanced",
                             True,
-                            f"Documents list retrieved successfully. Total count: {data['total_count']}, Documents in response: {len(data['documents'])}",
-                            {"total_count": data["total_count"], "documents_length": len(data["documents"])}
+                            f"Enhanced documents list retrieved successfully. Statistics: {statistics}, Documents count: {len(data['documents'])}, Document structure validated",
+                            {"statistics": statistics, "documents_count": len(data["documents"])}
                         )
                     else:
+                        errors = []
+                        if not documents_valid:
+                            errors.append("documents field should be list")
+                        if missing_stats:
+                            errors.append(f"missing statistics fields: {missing_stats}")
+                        if document_errors:
+                            errors.extend(document_errors)
+                        
                         self.log_test(
-                            "Documents Endpoint (/api/documents)",
+                            "Documents Endpoint (/api/documents) - Enhanced",
                             False,
-                            "Response fields have incorrect types (documents should be list, total_count should be int)",
+                            f"Structure validation errors: {', '.join(errors)}",
                             data
                         )
                 else:
                     self.log_test(
-                        "Documents Endpoint (/api/documents)",
+                        "Documents Endpoint (/api/documents) - Enhanced",
                         False,
-                        "Response missing required fields: documents and/or total_count",
+                        f"Response missing required fields: {', '.join(missing_fields)}",
                         data
                     )
             else:
                 self.log_test(
-                    "Documents Endpoint (/api/documents)",
+                    "Documents Endpoint (/api/documents) - Enhanced",
                     False,
                     f"HTTP {response.status_code}: {response.text}",
                     response.text
@@ -187,7 +219,7 @@ class KPABackendTester:
                 
         except Exception as e:
             self.log_test(
-                "Documents Endpoint (/api/documents)",
+                "Documents Endpoint (/api/documents) - Enhanced",
                 False,
                 f"Connection error: {str(e)}",
                 None
