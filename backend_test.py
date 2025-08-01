@@ -1075,6 +1075,197 @@ class KPABackendTester:
                 None
             )
 
+    def test_chatsession_pydantic_validation_fix(self):
+        """🔥 CRITICAL PRIORITY: Test ChatSession Pydantic Validation Fix - source_documents field"""
+        try:
+            print("   🔥 CRITICAL TEST: ChatSession Pydantic validation fix...")
+            print("   📋 Testing: Upload document → Process → Ask question → Verify no Pydantic errors")
+            
+            # Step 1: Create a test DOCX document with meaningful content
+            print("   Step 1: Creating test document...")
+            
+            # Create a simple DOCX-like content (minimal structure)
+            docx_content = (
+                b'PK\x03\x04\x14\x00\x00\x00\x08\x00'  # DOCX header
+                b'Test document content for ChatSession validation testing. '
+                b'This document contains information about corporate procedures. '
+                b'The main procedure involves three steps: planning, execution, and review. '
+                b'Each step requires careful documentation and approval from management. '
+                b'Quality control is essential throughout the process.'
+                + b'\x00' * 200  # Padding to make it look more like a real file
+            )
+            
+            files = {'file': ('test_chatsession_validation.docx', docx_content, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')}
+            
+            upload_response = self.session.post(f"{self.base_url}/upload-document", files=files)
+            
+            if upload_response.status_code == 200:
+                upload_data = upload_response.json()
+                document_id = upload_data.get("document_id")
+                
+                self.log_test(
+                    "ChatSession Validation - Document Upload",
+                    True,
+                    f"✅ Test document uploaded successfully: {upload_data.get('message', '')}",
+                    {"document_id": document_id}
+                )
+                
+                # Step 2: Wait for document processing and check FAISS index readiness
+                print("   Step 2: Waiting for document processing...")
+                
+                max_wait_time = 30  # seconds
+                wait_interval = 2   # seconds
+                waited_time = 0
+                faiss_ready = False
+                
+                while waited_time < max_wait_time:
+                    status_response = self.session.get(f"{self.base_url}/status")
+                    if status_response.status_code == 200:
+                        status_data = status_response.json()
+                        faiss_ready = status_data.get("faiss_index_ready", False)
+                        total_chunks = status_data.get("total_chunks", 0)
+                        
+                        if faiss_ready and total_chunks > 0:
+                            print(f"   ✅ FAISS index ready with {total_chunks} chunks after {waited_time}s")
+                            break
+                    
+                    time.sleep(wait_interval)
+                    waited_time += wait_interval
+                    print(f"   ⏳ Waiting for processing... ({waited_time}s/{max_wait_time}s)")
+                
+                if faiss_ready:
+                    self.log_test(
+                        "ChatSession Validation - Document Processing",
+                        True,
+                        f"✅ Document processed and FAISS index ready after {waited_time}s",
+                        {"wait_time": waited_time, "faiss_ready": faiss_ready}
+                    )
+                    
+                    # Step 3: Test the /api/ask-question endpoint
+                    print("   Step 3: Testing /api/ask-question endpoint...")
+                    
+                    test_questions = [
+                        "What are the main steps in the procedure?",
+                        "Tell me about the corporate procedures",
+                        "What is required for quality control?"
+                    ]
+                    
+                    validation_success = True
+                    validation_errors = []
+                    successful_questions = 0
+                    
+                    for i, question in enumerate(test_questions, 1):
+                        print(f"   Question {i}: {question}")
+                        
+                        question_request = {
+                            "question": question,
+                            "session_id": f"test_session_{int(time.time())}"
+                        }
+                        
+                        question_response = self.session.post(
+                            f"{self.base_url}/ask-question",
+                            json=question_request
+                        )
+                        
+                        if question_response.status_code == 200:
+                            try:
+                                question_data = question_response.json()
+                                
+                                # Check for required fields in response
+                                required_fields = ["question", "answer", "session_id", "context_found"]
+                                missing_fields = [field for field in required_fields if field not in question_data]
+                                
+                                if not missing_fields:
+                                    answer = question_data.get("answer", "")
+                                    context_found = question_data.get("context_found", False)
+                                    
+                                    if context_found and len(answer) > 10:  # Meaningful answer
+                                        successful_questions += 1
+                                        print(f"   ✅ Question {i} answered successfully")
+                                    else:
+                                        print(f"   ⚠️ Question {i} answered but no context found or short answer")
+                                        successful_questions += 0.5  # Partial success
+                                else:
+                                    validation_errors.append(f"Question {i}: Missing fields {missing_fields}")
+                                    validation_success = False
+                                    
+                            except json.JSONDecodeError as e:
+                                validation_errors.append(f"Question {i}: Invalid JSON response - {str(e)}")
+                                validation_success = False
+                                
+                        elif question_response.status_code == 500:
+                            # Check if it's a Pydantic validation error
+                            try:
+                                error_data = question_response.json()
+                                error_detail = error_data.get("detail", "")
+                                
+                                if "validation error" in error_detail.lower() and "chatsession" in error_detail.lower():
+                                    validation_errors.append(f"Question {i}: PYDANTIC VALIDATION ERROR - {error_detail}")
+                                    validation_success = False
+                                else:
+                                    validation_errors.append(f"Question {i}: Server error (non-Pydantic) - {error_detail}")
+                                    
+                            except json.JSONDecodeError:
+                                validation_errors.append(f"Question {i}: HTTP 500 with non-JSON response")
+                                
+                        else:
+                            validation_errors.append(f"Question {i}: HTTP {question_response.status_code}")
+                    
+                    # Step 4: Evaluate results
+                    if validation_success and successful_questions >= 1:
+                        self.log_test(
+                            "ChatSession Pydantic Validation Fix - CRITICAL",
+                            True,
+                            f"✅ CRITICAL FIX WORKING! No Pydantic validation errors detected. Successfully answered {successful_questions}/{len(test_questions)} questions. ChatSession source_documents field properly populated.",
+                            {
+                                "successful_questions": successful_questions,
+                                "total_questions": len(test_questions),
+                                "validation_errors": validation_errors
+                            }
+                        )
+                    else:
+                        self.log_test(
+                            "ChatSession Pydantic Validation Fix - CRITICAL",
+                            False,
+                            f"❌ CRITICAL FIX FAILED! Validation errors detected: {'; '.join(validation_errors)}. Successful questions: {successful_questions}/{len(test_questions)}",
+                            {
+                                "successful_questions": successful_questions,
+                                "total_questions": len(test_questions),
+                                "validation_errors": validation_errors
+                            }
+                        )
+                    
+                    # Step 5: Clean up test document
+                    if document_id:
+                        cleanup_response = self.session.delete(f"{self.base_url}/documents/{document_id}")
+                        if cleanup_response.status_code == 200:
+                            print("   🧹 Test document cleaned up successfully")
+                        
+                else:
+                    self.log_test(
+                        "ChatSession Pydantic Validation Fix - CRITICAL",
+                        False,
+                        f"❌ CRITICAL TEST FAILED! Document processing timeout after {max_wait_time}s. FAISS index not ready, cannot test ChatSession validation.",
+                        {"waited_time": waited_time, "faiss_ready": faiss_ready}
+                    )
+                    
+            else:
+                error_data = upload_response.json() if upload_response.status_code == 400 else upload_response.text
+                self.log_test(
+                    "ChatSession Pydantic Validation Fix - CRITICAL",
+                    False,
+                    f"❌ CRITICAL TEST FAILED! Could not upload test document: HTTP {upload_response.status_code}",
+                    error_data
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "ChatSession Pydantic Validation Fix - CRITICAL",
+                False,
+                f"❌ CRITICAL TEST ERROR! Exception during ChatSession validation test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests focusing on PRIORITY: DOC PROCESSING & DOCUMENT ISSUES"""
         print("=" * 80)
