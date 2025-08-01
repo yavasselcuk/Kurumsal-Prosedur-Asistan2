@@ -96,7 +96,10 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        setUploadProgress(`✅ ${data.message} (${data.chunk_count} parça oluşturuldu)`);
+        setUploadProgress(`✅ ${data.message}`);
+        if (data.file_size) {
+          setUploadProgress(prev => prev + ` (${data.file_size}, ${data.chunk_count} parça)`);
+        }
         setSelectedFile(null);
         document.getElementById('fileInput').value = '';
         
