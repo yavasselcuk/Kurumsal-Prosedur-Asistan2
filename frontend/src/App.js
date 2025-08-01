@@ -39,9 +39,10 @@ function App() {
     fetchDocuments();
   }, [selectedGroup]);
 
-  const generateSessionId = () => {
-    return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-  };
+  useEffect(() => {
+    // Chat'in sonuna scroll yap
+    scrollToBottom();
+  }, [chatHistory]);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
