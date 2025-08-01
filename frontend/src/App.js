@@ -436,7 +436,7 @@ function App() {
                     <input
                       id="fileInput"
                       type="file"
-                      accept=".docx"
+                      accept=".doc,.docx"
                       onChange={handleFileSelect}
                       className="hidden"
                     />
