@@ -211,14 +211,46 @@ docker run -d --name mongodb \
 
 ### 1. Projeyi İndirin
 
-```bash
-# GitHub'dan clone edin (eğer reponuz varsa):
-git clone https://github.com/[kullanici-adi]/kurumsal-prosedur-asistani.git
-cd kurumsal-prosedur-asistani
+#### Ubuntu 24.04 LTS için
 
-# Veya zip dosyasını çıkarın:
-unzip kpa-project.zip
-cd kpa-project
+```bash
+# Proje dizini oluşturun
+sudo mkdir -p /opt/kpa
+sudo chown $USER:$USER /opt/kpa
+cd /opt/kpa
+
+# GitHub'dan clone edin (eğer reponuz varsa):
+git clone https://github.com/[kullanici-adi]/kurumsal-prosedur-asistani.git .
+
+# Veya zip dosyasını indirin ve çıkarın:
+wget https://github.com/[kullanici-adi]/kurumsal-prosedur-asistani/archive/main.zip
+unzip main.zip
+mv kurumsal-prosedur-asistani-main/* .
+rm -rf kurumsal-prosedur-asistani-main main.zip
+
+# Veya yerel zip dosyasını çıkarın:
+unzip kpa-project-final.zip
+mv kpa-project/* .
+rm -rf kpa-project
+
+# Dizin izinlerini ayarlayın
+sudo chown -R $USER:$USER /opt/kpa
+chmod +x deploy.sh
+```
+
+#### Dosya Yapısını Kontrol Edin
+
+```bash
+# Proje yapısını görüntüleyin
+tree /opt/kpa || ls -la /opt/kpa
+
+# Beklenen yapı:
+# /opt/kpa/
+# ├── backend/
+# ├── frontend/
+# ├── docker-compose.yml
+# ├── deploy.sh
+# └── README.md
 ```
 
 ### 2. Backend Kurulumu
