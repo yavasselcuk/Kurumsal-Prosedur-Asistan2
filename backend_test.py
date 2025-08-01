@@ -815,12 +815,13 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests including NEW FEATURES"""
-        print("=" * 70)
-        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - ENHANCED")
-        print("=" * 70)
+        """Run all backend tests focusing on PRIORITY ISSUES: GROUP MANAGEMENT & DOCUMENT DELETION"""
+        print("=" * 80)
+        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - PRIORITY FOCUS")
+        print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("Testing NEW FEATURES: Enhanced status, document management, format support")
+        print("🔥 PRIORITY TESTS: Group Management & Document Deletion Issues")
+        print("📋 Testing: DELETE documents, Group CRUD, Document-Group relationships, System status")
         print()
         
         # Test connectivity first
@@ -828,17 +829,35 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Skipping other tests.")
             return self.get_summary()
         
-        # Run specific API tests (original)
-        self.test_root_endpoint()
+        # PRIORITY TESTS FIRST - User reported issues
+        print("🚨 PRIORITY TESTS - USER REPORTED ISSUES:")
+        print("-" * 50)
         
-        # Run enhanced tests for NEW FEATURES
+        # 1. Document deletion issue (user can't delete)
+        self.test_document_delete_functionality()
+        
+        # 2. Group management APIs
+        self.test_group_management_apis()
+        
+        # 3. Document-group relationships
+        self.test_document_group_relationships()
+        
+        # 4. System status with total_groups
+        self.test_system_status_total_groups()
+        
+        # 5. Upload with group parameter
+        self.test_upload_with_group()
+        
+        print("\n📊 ADDITIONAL SYSTEM TESTS:")
+        print("-" * 30)
+        
+        # Run basic API tests
+        self.test_root_endpoint()
         self.test_status_endpoint()  # Enhanced with new fields
         self.test_documents_endpoint()  # Enhanced with statistics
         
-        # Run NEW FEATURE tests
-        self.test_new_format_support_active()
+        # Format support validation
         self.test_file_validation()
-        self.test_document_delete_response_structure()
         
         return self.get_summary()
 
