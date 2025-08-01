@@ -8,9 +8,17 @@ function App() {
   const [sessionId, setSessionId] = useState('');
   const [systemStatus, setSystemStatus] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
+  const [selectedGroup, setSelectedGroup] = useState('all'); // 'all', 'ungrouped', group_id
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDescription, setNewGroupDescription] = useState('');
+  const [newGroupColor, setNewGroupColor] = useState('#3b82f6');
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
