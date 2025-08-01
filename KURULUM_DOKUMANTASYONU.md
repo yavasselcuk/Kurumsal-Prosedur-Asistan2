@@ -307,7 +307,7 @@ uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 curl http://localhost:8001/api/status
 ```
 
-### 3. Environment Variables (.env)
+### 3. Environment Variables (.env) - Ubuntu 24.04
 
 ```bash
 # backend/.env dosyası:
@@ -315,9 +315,30 @@ MONGO_URL="mongodb://localhost:27017"
 DB_NAME="kpa_production"
 GEMINI_API_KEY="[GOOGLE-GEMINI-API-ANAHTARINIZ]"
 
-# Güvenlik için:
-SECRET_KEY="[GUVENLI-RASTGELE-ANAHTAR-32-KARAKTER]"
+# Ubuntu 24.04 için optimizasyonlar:
 ENVIRONMENT="production"
+DEBUG="false"
+LOG_LEVEL="INFO"
+WORKERS="4"  # CPU core sayınıza göre ayarlayın
+
+# Güvenlik ayarları:
+SECRET_KEY="[GUVENLI-RASTGELE-ANAHTAR-32-KARAKTER]"
+ALLOWED_HOSTS="localhost,127.0.0.1,[DOMAIN-ADINIZ]"
+
+# Performance ayarları (Ubuntu 24.04):
+MAX_WORKERS="8"
+TIMEOUT="300"
+KEEPALIVE="2"
+```
+
+#### Güvenli Secret Key Oluşturma
+
+```bash
+# Güvenli secret key oluşturun
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Veya OpenSSL ile:
+openssl rand -base64 32
 ```
 
 ### 4. Frontend Kurulumu
