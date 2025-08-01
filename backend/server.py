@@ -127,7 +127,7 @@ class DocumentMoveRequest(BaseModel):
 
 # Helper functions
 async def extract_text_from_document(file_content: bytes, filename: str) -> str:
-    """Word dokümanından metin çıkarma (.doc ve .docx desteği)"""
+    """Word dokümanından metin çıkarma (.doc ve .docx desteği) - Improved"""
     try:
         file_extension = Path(filename).suffix.lower()
         
@@ -171,23 +171,59 @@ async def extract_text_from_document(file_content: bytes, filename: str) -> str:
                     raise HTTPException(status_code=400, detail=f"DOCX işleme hatası: {str(e2)}")
         
         elif file_extension == '.doc':
-            # DOC dosyaları için
+            # DOC dosyaları için - Improved error handling
             try:
-                # Method 1: textract ile
-                extracted_text = textract.process(temp_file_path).decode('utf-8')
+                # Method 1: antiword ile (en güvenilir)
+                import subprocess
+                result = subprocess.run(
+                    ['antiword', temp_file_path], 
+                    capture_output=True, 
+                    text=True, 
+                    check=True,
+                    timeout=30  # Timeout eklendi
+                )
+                extracted_text = result.stdout
                 
-            except Exception as e:
-                logging.warning(f"textract failed for {filename}: {str(e)}")
+                if not extracted_text.strip():
+                    raise Exception("antiword returned empty content")
+                
+                logging.info(f"Successfully processed {filename} with antiword")
+                
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+                logging.warning(f"antiword failed for {filename}: {str(e)}, trying textract")
                 try:
-                    # Method 2: Alternatif olarak antiword (eğer sistem'de kuruluysa)
-                    import subprocess
-                    result = subprocess.run(['antiword', temp_file_path], 
-                                          capture_output=True, text=True, check=True)
-                    extracted_text = result.stdout
+                    # Method 2: textract ile (fallback)
+                    extracted_text = textract.process(temp_file_path, method='antiword').decode('utf-8')
                     
-                except (subprocess.CalledProcessError, FileNotFoundError) as e2:
-                    logging.error(f"antiword also failed for {filename}: {str(e2)}")
-                    raise HTTPException(status_code=400, detail=f"DOC işleme hatası. Lütfen dosyayı DOCX formatında yükleyin.")
+                    if not extracted_text.strip():
+                        # Method 3: textract default method
+                        extracted_text = textract.process(temp_file_path).decode('utf-8')
+                    
+                    logging.info(f"Successfully processed {filename} with textract")
+                    
+                except Exception as e2:
+                    logging.error(f"textract also failed for {filename}: {str(e2)}")
+                    try:
+                        # Method 4: Son çare - olabildiğince basit işleme
+                        with open(temp_file_path, 'rb') as f:
+                            raw_content = f.read()
+                            # Basit metin çıkarma denemesi
+                            extracted_text = raw_content.decode('utf-8', errors='ignore')
+                            # Binary karakterleri temizle
+                            import re
+                            extracted_text = re.sub(r'[^\x20-\x7E\n\r\t]', ' ', extracted_text)
+                            extracted_text = re.sub(r'\s+', ' ', extracted_text).strip()
+                            
+                        if len(extracted_text) < 10:  # Çok kısa ise başarısız sayılır
+                            raise Exception("Could not extract meaningful text")
+                        
+                        logging.warning(f"Used fallback text extraction for {filename}")
+                        
+                    except Exception as e3:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"DOC dosyası işlenemedi. Dosya bozuk olabilir veya desteklenmeyen bir format içeriyor. Lütfen dosyayı DOCX formatında kaydedin ve tekrar deneyin. Hata detayı: {str(e3)}"
+                        )
         
         else:
             raise HTTPException(status_code=400, detail=f"Desteklenmeyen dosya formatı: {file_extension}")
@@ -195,10 +231,18 @@ async def extract_text_from_document(file_content: bytes, filename: str) -> str:
         # Geçici dosyayı sil
         os.unlink(temp_file_path)
         
+        # Metin kontrolü
         if not extracted_text.strip():
             raise HTTPException(status_code=400, detail="Doküman boş veya metin çıkarılamadı")
         
-        return extracted_text.strip()
+        # Metin temizleme
+        cleaned_text = extracted_text.strip()
+        # Çok fazla boşluk varsa temizle
+        import re
+        cleaned_text = re.sub(r'\n\s*\n', '\n\n', cleaned_text)  # Çoklu newline'ları düzelt
+        cleaned_text = re.sub(r' +', ' ', cleaned_text)  # Çoklu space'leri düzelt
+        
+        return cleaned_text
         
     except HTTPException:
         raise
