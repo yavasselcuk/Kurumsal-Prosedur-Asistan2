@@ -1076,13 +1076,13 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests focusing on PRIORITY ISSUES: GROUP MANAGEMENT & DOCUMENT DELETION"""
+        """Run all backend tests focusing on PRIORITY: DOC PROCESSING & DOCUMENT ISSUES"""
         print("=" * 80)
-        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - PRIORITY FOCUS")
+        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - DOC PROCESSING FOCUS")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🔥 PRIORITY TESTS: Group Management & Document Deletion Issues")
-        print("📋 Testing: DELETE documents, Group CRUD, Document-Group relationships, System status")
+        print("🔥 PRIORITY TESTS: DOC Processing System - antiword, textract, error handling")
+        print("📋 Testing: DOC processing pipeline, file validation, enhanced error messages")
         print()
         
         # Test connectivity first
@@ -1090,23 +1090,38 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Skipping other tests.")
             return self.get_summary()
         
-        # PRIORITY TESTS FIRST - User reported issues
-        print("🚨 PRIORITY TESTS - USER REPORTED ISSUES:")
+        # 🔥 PRIORITY TESTS FIRST - DOC Processing Issues
+        print("🚨 PRIORITY TESTS - DOC PROCESSING SYSTEM:")
         print("-" * 50)
         
-        # 1. Document deletion issue (user can't delete)
+        # 1. DOC processing system (antiword + textract)
+        self.test_doc_processing_system()
+        
+        # 2. Document processing pipeline
+        self.test_document_processing_pipeline()
+        
+        # 3. Enhanced error handling
+        self.test_enhanced_error_handling()
+        
+        # 4. File format validation (.doc/.docx)
+        self.test_file_validation()
+        
+        print("\n🚨 SECONDARY PRIORITY - USER REPORTED ISSUES:")
+        print("-" * 50)
+        
+        # 5. Document deletion issue (user can't delete)
         self.test_document_delete_functionality()
         
-        # 2. Group management APIs
+        # 6. Group management APIs
         self.test_group_management_apis()
         
-        # 3. Document-group relationships
+        # 7. Document-group relationships
         self.test_document_group_relationships()
         
-        # 4. System status with total_groups
+        # 8. System status with total_groups
         self.test_system_status_total_groups()
         
-        # 5. Upload with group parameter
+        # 9. Upload with group parameter
         self.test_upload_with_group()
         
         print("\n📊 ADDITIONAL SYSTEM TESTS:")
@@ -1116,9 +1131,6 @@ class KPABackendTester:
         self.test_root_endpoint()
         self.test_status_endpoint()  # Enhanced with new fields
         self.test_documents_endpoint()  # Enhanced with statistics
-        
-        # Format support validation
-        self.test_file_validation()
         
         return self.get_summary()
 
