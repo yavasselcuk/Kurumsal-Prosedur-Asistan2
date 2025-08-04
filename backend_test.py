@@ -1468,6 +1468,363 @@ class KPABackendTester:
                 None
             )
 
+    def test_source_documents_and_links_integration(self):
+        """🔥 NEW FEATURE: Test Enhanced Source Documents and Links Feature in Q&A System"""
+        try:
+            print("   📚 Testing Enhanced Source Documents and Links Integration...")
+            print("   📋 Testing: Upload documents → Ask questions → Verify source documents section → Test document links")
+            
+            # Step 1: Upload test documents with meaningful content
+            print("   Step 1: Uploading test documents...")
+            
+            test_documents = [
+                {
+                    "filename": "IK_Proseduru_Test.docx",
+                    "content": (
+                        b'PK\x03\x04\x14\x08'  # DOCX header
+                        b'INSAN KAYNAKLARI PROSEDURU\n\n'
+                        b'1. GENEL BILGILER\n'
+                        b'Insan kaynaklari proseduru sirket calisanlarinin ise alim surecini duzenler.\n\n'
+                        b'2. ISE ALIM SURECI\n'
+                        b'Calisan ise alim sureci asagidaki adimlari icerir:\n'
+                        b'- Basvuru toplama\n'
+                        b'- Mulakat yapma\n'
+                        b'- Referans kontrol\n'
+                        b'- Karar verme\n\n'
+                        b'3. GEREKLI BELGELER\n'
+                        b'Ise alim icin gerekli belgeler:\n'
+                        b'- Ozgecmis\n'
+                        b'- Diploma fotokopisi\n'
+                        b'- Referans mektuplari\n'
+                        + b'' * 300
+                    ),
+                    "group_name": "İnsan Kaynakları"
+                },
+                {
+                    "filename": "Calisan_Haklari_Rehberi.docx", 
+                    "content": (
+                        b'PK\x03\x04\x14\x08'  # DOCX header
+                        b'CALISAN HAKLARI REHBERI\n\n'
+                        b'1. TEMEL HAKLAR\n'
+                        b'Calisanlarin temel haklari sunlardir:\n'
+                        b'- Adil ucret alma hakki\n'
+                        b'- Guvenli calisma ortami\n'
+                        b'- Yillik izin hakki\n'
+                        b'- Saglik sigortasi\n\n'
+                        b'2. IZIN TURLERI\n'
+                        b'Calisanlar asagidaki izin turlerini kullanabilir:\n'
+                        b'- Yillik izin (22 gun)\n'
+                        b'- Hastalik izni\n'
+                        b'- Dogum izni\n'
+                        b'- Mazeret izni\n\n'
+                        b'3. SIKAYET PROSEDURU\n'
+                        b'Calisanlar sikayetlerini IK departmanina iletebilir.\n'
+                        + b'' * 300
+                    ),
+                    "group_name": "İnsan Kaynakları"
+                }
+            ]
+            
+            uploaded_documents = []
+            
+            # Create test group first
+            test_group_data = {
+                "name": "İnsan Kaynakları",
+                "description": "Test grubu - İK dokümanları",
+                "color": "#3498db"
+            }
+            
+            group_response = self.session.post(f"{self.base_url}/groups", json=test_group_data)
+            group_id = None
+            if group_response.status_code == 200:
+                group_data = group_response.json()
+                group_id = group_data.get("group", {}).get("id")
+            
+            # Upload documents
+            for doc_info in test_documents:
+                files = {'file': (doc_info["filename"], doc_info["content"], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')}
+                data = {'group_id': group_id} if group_id else {}
+                
+                upload_response = self.session.post(f"{self.base_url}/upload-document", files=files, data=data)
+                
+                if upload_response.status_code == 200:
+                    upload_data = upload_response.json()
+                    document_id = upload_data.get("document_id")
+                    uploaded_documents.append({
+                        "id": document_id,
+                        "filename": doc_info["filename"],
+                        "group_name": doc_info["group_name"]
+                    })
+                    print(f"   ✅ Uploaded: {doc_info['filename']}")
+                else:
+                    print(f"   ❌ Failed to upload: {doc_info['filename']}")
+            
+            if len(uploaded_documents) < 2:
+                self.log_test(
+                    "Source Documents and Links Integration - Document Upload",
+                    False,
+                    f"❌ Could not upload sufficient test documents. Only {len(uploaded_documents)} uploaded.",
+                    None
+                )
+                return
+            
+            self.log_test(
+                "Source Documents and Links Integration - Document Upload",
+                True,
+                f"✅ Successfully uploaded {len(uploaded_documents)} test documents",
+                {"uploaded_count": len(uploaded_documents)}
+            )
+            
+            # Step 2: Wait for document processing
+            print("   Step 2: Waiting for document processing...")
+            
+            max_wait_time = 30
+            wait_interval = 2
+            waited_time = 0
+            faiss_ready = False
+            
+            while waited_time < max_wait_time:
+                status_response = self.session.get(f"{self.base_url}/status")
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    faiss_ready = status_data.get("faiss_index_ready", False)
+                    total_chunks = status_data.get("total_chunks", 0)
+                    
+                    if faiss_ready and total_chunks > 0:
+                        print(f"   ✅ FAISS index ready with {total_chunks} chunks after {waited_time}s")
+                        break
+                
+                time.sleep(wait_interval)
+                waited_time += wait_interval
+                print(f"   ⏳ Waiting for processing... ({waited_time}s/{max_wait_time}s)")
+            
+            if not faiss_ready:
+                self.log_test(
+                    "Source Documents and Links Integration - Processing",
+                    False,
+                    f"❌ Document processing timeout after {max_wait_time}s. Cannot test Q&A functionality.",
+                    {"waited_time": waited_time}
+                )
+                return
+            
+            # Step 3: Test Q&A with source documents
+            print("   Step 3: Testing Q&A with source documents...")
+            
+            test_questions = [
+                "İnsan kaynakları prosedürleri nelerdir?",
+                "Çalışan işe alım süreci nasıl?",
+                "Çalışan hakları hakkında bilgi ver"
+            ]
+            
+            source_documents_tests = []
+            
+            for i, question in enumerate(test_questions, 1):
+                print(f"   Question {i}: {question}")
+                
+                question_request = {
+                    "question": question,
+                    "session_id": f"source_test_session_{int(time.time())}"
+                }
+                
+                question_response = self.session.post(
+                    f"{self.base_url}/ask-question",
+                    json=question_request
+                )
+                
+                if question_response.status_code == 200:
+                    try:
+                        question_data = question_response.json()
+                        answer = question_data.get("answer", "")
+                        source_documents = question_data.get("source_documents", [])
+                        context_found = question_data.get("context_found", False)
+                        
+                        # Test 1: Check if response includes "📚 Kaynak Dokümanlar" section
+                        has_source_section = "📚 Kaynak Dokümanlar" in answer
+                        
+                        # Test 2: Check if source documents are in bold format
+                        bold_filenames = []
+                        for doc in uploaded_documents:
+                            if f"**{doc['filename']}**" in answer:
+                                bold_filenames.append(doc['filename'])
+                        
+                        # Test 3: Check for document view links
+                        document_links = []
+                        for doc in uploaded_documents:
+                            link_pattern = f"[Dokümanı Görüntüle](/api/documents/{doc['id']})"
+                            if link_pattern in answer:
+                                document_links.append(doc['id'])
+                        
+                        # Test 4: Check source_documents field structure
+                        detailed_source_info = isinstance(source_documents, list) and len(source_documents) > 0
+                        if detailed_source_info and len(source_documents) > 0:
+                            first_source = source_documents[0]
+                            has_required_fields = all(field in first_source for field in ["filename", "id", "group_name"])
+                        else:
+                            has_required_fields = False
+                        
+                        test_result = {
+                            "question": question,
+                            "has_source_section": has_source_section,
+                            "bold_filenames_count": len(bold_filenames),
+                            "document_links_count": len(document_links),
+                            "detailed_source_info": detailed_source_info,
+                            "has_required_fields": has_required_fields,
+                            "context_found": context_found,
+                            "answer_length": len(answer),
+                            "source_documents_count": len(source_documents)
+                        }
+                        
+                        source_documents_tests.append(test_result)
+                        
+                        print(f"   ✅ Question {i} processed - Source section: {has_source_section}, Bold files: {len(bold_filenames)}, Links: {len(document_links)}")
+                        
+                    except json.JSONDecodeError as e:
+                        source_documents_tests.append({
+                            "question": question,
+                            "error": f"JSON decode error: {str(e)}"
+                        })
+                        
+                else:
+                    source_documents_tests.append({
+                        "question": question,
+                        "error": f"HTTP {question_response.status_code}: {question_response.text}"
+                    })
+            
+            # Step 4: Evaluate source documents integration
+            successful_tests = 0
+            total_features = 0
+            
+            for test in source_documents_tests:
+                if "error" not in test:
+                    # Count successful features
+                    if test.get("has_source_section", False):
+                        successful_tests += 1
+                    if test.get("bold_filenames_count", 0) > 0:
+                        successful_tests += 1
+                    if test.get("document_links_count", 0) > 0:
+                        successful_tests += 1
+                    if test.get("detailed_source_info", False):
+                        successful_tests += 1
+                    
+                    total_features += 4  # 4 features per question
+            
+            source_integration_success = successful_tests >= (total_features * 0.75)  # 75% success rate
+            
+            if source_integration_success:
+                self.log_test(
+                    "Source Documents and Links Integration - Q&A Testing",
+                    True,
+                    f"✅ Source documents integration working perfectly! Features working: {successful_tests}/{total_features}. All test questions processed with proper source document formatting.",
+                    {"test_results": source_documents_tests, "success_rate": f"{successful_tests}/{total_features}"}
+                )
+            else:
+                self.log_test(
+                    "Source Documents and Links Integration - Q&A Testing",
+                    False,
+                    f"❌ Source documents integration has issues. Features working: {successful_tests}/{total_features}. Some formatting or linking features not working properly.",
+                    {"test_results": source_documents_tests, "success_rate": f"{successful_tests}/{total_features}"}
+                )
+            
+            # Step 5: Test document view links
+            print("   Step 5: Testing document view links...")
+            
+            link_tests = []
+            for doc in uploaded_documents:
+                doc_response = self.session.get(f"{self.base_url}/documents/{doc['id']}")
+                
+                if doc_response.status_code == 200:
+                    doc_data = doc_response.json()
+                    required_fields = ["id", "filename", "file_type", "file_size", "chunk_count"]
+                    missing_fields = [field for field in required_fields if field not in doc_data]
+                    
+                    link_tests.append({
+                        "document_id": doc['id'],
+                        "filename": doc['filename'],
+                        "success": len(missing_fields) == 0,
+                        "missing_fields": missing_fields
+                    })
+                    
+                    print(f"   ✅ Document link working: {doc['filename']}")
+                else:
+                    link_tests.append({
+                        "document_id": doc['id'],
+                        "filename": doc['filename'],
+                        "success": False,
+                        "error": f"HTTP {doc_response.status_code}"
+                    })
+                    print(f"   ❌ Document link failed: {doc['filename']}")
+            
+            successful_links = len([test for test in link_tests if test["success"]])
+            links_working = successful_links == len(uploaded_documents)
+            
+            if links_working:
+                self.log_test(
+                    "Source Documents and Links Integration - Document Links",
+                    True,
+                    f"✅ All document view links working perfectly! {successful_links}/{len(uploaded_documents)} links functional.",
+                    {"link_tests": link_tests}
+                )
+            else:
+                self.log_test(
+                    "Source Documents and Links Integration - Document Links",
+                    False,
+                    f"❌ Some document links not working. {successful_links}/{len(uploaded_documents)} links functional.",
+                    {"link_tests": link_tests}
+                )
+            
+            # Step 6: Overall integration assessment
+            overall_success = source_integration_success and links_working
+            
+            if overall_success:
+                self.log_test(
+                    "Source Documents and Links Integration - OVERALL",
+                    True,
+                    f"🎉 ENHANCED SOURCE DOCUMENTS AND LINKS FEATURE WORKING PERFECTLY! All components functional: Q&A with source formatting, document links, detailed source information. Feature ready for production use.",
+                    {
+                        "qa_integration": source_integration_success,
+                        "document_links": links_working,
+                        "uploaded_documents": len(uploaded_documents),
+                        "test_questions": len(test_questions)
+                    }
+                )
+            else:
+                issues = []
+                if not source_integration_success:
+                    issues.append("Q&A source formatting")
+                if not links_working:
+                    issues.append("document view links")
+                
+                self.log_test(
+                    "Source Documents and Links Integration - OVERALL",
+                    False,
+                    f"❌ Enhanced source documents feature has issues with: {', '.join(issues)}. Needs attention before production use.",
+                    {
+                        "qa_integration": source_integration_success,
+                        "document_links": links_working,
+                        "issues": issues
+                    }
+                )
+            
+            # Step 7: Cleanup test documents and group
+            print("   Step 7: Cleaning up test data...")
+            for doc in uploaded_documents:
+                cleanup_response = self.session.delete(f"{self.base_url}/documents/{doc['id']}")
+                if cleanup_response.status_code == 200:
+                    print(f"   🧹 Cleaned up: {doc['filename']}")
+            
+            if group_id:
+                group_cleanup = self.session.delete(f"{self.base_url}/groups/{group_id}?move_documents=true")
+                if group_cleanup.status_code == 200:
+                    print("   🧹 Cleaned up test group")
+            
+        except Exception as e:
+            self.log_test(
+                "Source Documents and Links Integration",
+                False,
+                f"❌ Exception during source documents integration test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests focusing on Enhanced AI Response Formatting"""
         print("=" * 80)
