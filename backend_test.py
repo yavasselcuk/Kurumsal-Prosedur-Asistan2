@@ -2426,34 +2426,45 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests focusing on Source Documents and Links Integration"""
-        print("=" * 80)
-        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - SOURCE DOCUMENTS & LINKS")
+        """Run all backend tests including Question History feature"""
+        print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("📚 NEW FEATURE PRIORITY: Enhanced Source Documents and Links Integration")
-        print("📋 Testing: Upload → Process → Ask Questions → Verify Source Documents → Test Links")
+        print("🆕 NEW FEATURE PRIORITY: Question History Backend API")
+        print("📋 Testing: Chat Sessions → Recent Questions → Replay Question → Integration")
         print()
         
-        # Test connectivity first
+        # Test basic connectivity first
         if not self.test_backend_connectivity():
-            print("❌ Backend connectivity failed. Skipping other tests.")
+            print("❌ Backend connectivity failed. Stopping tests.")
             return self.get_summary()
         
-        # 📚 NEW FEATURE TEST FIRST - Source Documents and Links Integration
-        print("📚 NEW FEATURE TEST - SOURCE DOCUMENTS AND LINKS INTEGRATION:")
+        # 🆕 NEW FEATURE TEST FIRST - Question History Backend API
+        print("🆕 NEW FEATURE TEST - QUESTION HISTORY BACKEND API:")
         print("-" * 70)
         
-        # 1. Source Documents and Links Integration (NEW FEATURE)
-        self.test_source_documents_and_links_integration()
+        # 1. Question History Feature Tests (NEW FEATURE)
+        self.test_question_history_chat_sessions()
+        self.test_recent_questions_endpoint()
+        self.test_replay_question_endpoint()
+        self.test_question_history_integration()
         
         print("\n📊 BASIC SYSTEM TESTS:")
         print("-" * 30)
         
-        # Run basic API tests
+        # Core API tests
         self.test_root_endpoint()
-        self.test_status_endpoint()  # Enhanced with new fields
-        self.test_documents_endpoint()  # Enhanced with statistics
+        self.test_status_endpoint()
+        self.test_documents_endpoint()
+        
+        # Enhanced features tests
+        self.test_file_validation()
+        
+        print("\n📚 EXISTING FEATURES VALIDATION:")
+        print("-" * 40)
+        
+        # 📚 Source Documents and Links Integration (Existing Feature)
+        self.test_source_documents_and_links_integration()
         
         return self.get_summary()
 
