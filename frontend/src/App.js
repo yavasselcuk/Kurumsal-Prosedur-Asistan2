@@ -518,6 +518,73 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
     setSessionId(generateSessionId());
   };
 
+  // Soru önerisi fonksiyonları
+  const fetchQuestionSuggestions = async (query) => {
+    if (!query || query.length < 3) {
+      setQuestionSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/suggest-questions?q=${encodeURIComponent(query)}&limit=5`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setQuestionSuggestions(data.suggestions || []);
+        setShowSuggestions(data.suggestions.length > 0);
+      } else {
+        setQuestionSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Soru önerisi alınamadı:', error);
+      setQuestionSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Debounced suggestion fetching
+  const debouncedFetchSuggestions = React.useCallback(
+    (() => {
+      let timeoutId;
+      return (query) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          fetchQuestionSuggestions(query);
+        }, 300); // 300ms delay
+      };
+    })(),
+    []
+  );
+
+  const handleQuestionChange = (e) => {
+    const value = e.target.value;
+    setQuestion(value);
+    
+    // Soru önerilerini getir (debounced)
+    debouncedFetchSuggestions(value);
+  };
+
+  const handleSuggestionSelect = (suggestion) => {
+    setQuestion(suggestion.text);
+    setShowSuggestions(false);
+    setQuestionSuggestions([]);
+    
+    // Optional: Soruyu otomatik gönder
+    // handleQuestionSubmit(new Event('submit'));
+  };
+
+  const hideSuggestions = () => {
+    // Biraz gecikme ile gizle (click event'ini kaçırmamak için)
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 150);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
