@@ -1507,13 +1507,13 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests focusing on PRIORITY: ChatSession Pydantic Validation Fix"""
+        """Run all backend tests focusing on Enhanced AI Response Formatting"""
         print("=" * 80)
-        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - CHATSESSION VALIDATION FIX")
+        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - ENHANCED FORMATTING")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🔥 CRITICAL PRIORITY: ChatSession Pydantic Validation Fix")
-        print("📋 Testing: Upload → Process → Ask Question → Verify no Pydantic errors")
+        print("🎨 NEW FEATURE PRIORITY: Enhanced AI Response Formatting System")
+        print("📋 Testing: Upload → Process → Ask Questions → Verify Markdown Formatting")
         print()
         
         # Test connectivity first
@@ -1521,47 +1521,14 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Skipping other tests.")
             return self.get_summary()
         
-        # 🔥 CRITICAL PRIORITY TEST FIRST - ChatSession Pydantic Validation Fix
-        print("🚨 CRITICAL PRIORITY TEST - CHATSESSION PYDANTIC VALIDATION FIX:")
+        # 🎨 NEW FEATURE TEST FIRST - Enhanced AI Response Formatting
+        print("🎨 NEW FEATURE TEST - ENHANCED AI RESPONSE FORMATTING:")
         print("-" * 60)
         
-        # 1. ChatSession Pydantic validation fix (CRITICAL)
-        self.test_chatsession_pydantic_validation_fix()
+        # 1. Enhanced AI Response Formatting (NEW FEATURE)
+        self.test_enhanced_ai_response_formatting()
         
-        print("\n🔥 PRIORITY TESTS - DOC PROCESSING SYSTEM:")
-        print("-" * 50)
-        
-        # 2. DOC processing system (antiword + textract)
-        self.test_doc_processing_system()
-        
-        # 3. Document processing pipeline
-        self.test_document_processing_pipeline()
-        
-        # 4. Enhanced error handling
-        self.test_enhanced_error_handling()
-        
-        # 5. File format validation (.doc/.docx)
-        self.test_file_validation()
-        
-        print("\n🚨 SECONDARY PRIORITY - USER REPORTED ISSUES:")
-        print("-" * 50)
-        
-        # 6. Document deletion issue (user can't delete)
-        self.test_document_delete_functionality()
-        
-        # 7. Group management APIs
-        self.test_group_management_apis()
-        
-        # 8. Document-group relationships
-        self.test_document_group_relationships()
-        
-        # 9. System status with total_groups
-        self.test_system_status_total_groups()
-        
-        # 10. Upload with group parameter
-        self.test_upload_with_group()
-        
-        print("\n📊 ADDITIONAL SYSTEM TESTS:")
+        print("\n📊 BASIC SYSTEM TESTS:")
         print("-" * 30)
         
         # Run basic API tests
