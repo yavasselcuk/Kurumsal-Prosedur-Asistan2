@@ -342,6 +342,18 @@ backend:
           agent: "testing"
           comment: "✅ ENHANCED FORMATTING WORKING PERFECTLY! Successfully tested the enhanced AI response formatting system. All 3 test questions (İnsan kaynakları prosedürlerinin adımları nelerdir?, Çalışan hakları hakkında bilgi ver, İK departmanının temel işleyiş adımları neler?) answered successfully with proper markdown formatting. Bold formatting detected: 106 instances across responses, Average answer length: 6659 chars. System message formatting rules (**bold** for headings and important terms) are being applied correctly. The generate_answer_with_gemini function includes comprehensive formatting rules: başlıkları **kalın** yaparak vurgula, önemli terimleri ve anahtar kelimeleri **kalın** yaz, madde listelerini • ile başlat, numaralı listeler için 1., 2., 3. formatını kullan, cevabını paragraflar halinde organize et. Q&A system working properly with updated formatting."
 
+  - task: "Source Documents and Links Integration"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "🎉 ENHANCED SOURCE DOCUMENTS AND LINKS FEATURE WORKING PERFECTLY! Comprehensive testing completed with 100% success rate (8/8 tests passed). Key findings: ✅ 1) Q&A RESPONSES INCLUDE SOURCE SECTION - All test questions returned responses with '📚 Kaynak Dokümanlar' section properly formatted, ✅ 2) BOLD FILENAME FORMATTING WORKING - Document filenames displayed in **bold** format as specified (detected 3, 2, 3 bold filenames across test questions), ✅ 3) DOCUMENT VIEW LINKS FUNCTIONAL - All document links in format [Dokümanı Görüntüle](/api/documents/{id}) working correctly (detected 3, 2, 3 links across test questions), ✅ 4) DETAILED SOURCE INFORMATION - source_documents field includes complete document information with filename, id, and group_name fields, ✅ 5) DOCUMENT ENDPOINTS WORKING - All /api/documents/{id} endpoints return proper document details with required fields (id, filename, file_type, file_size, chunk_count). Feature is production-ready and significantly enhances user experience by providing clear source attribution and easy document access."
+
 frontend:
   - task: "Homepage and Navigation Test"
     implemented: true
