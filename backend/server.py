@@ -371,7 +371,14 @@ async def generate_answer_with_gemini(question: str, context_chunks: List[str], 
 2. Kontekstde bulunmayan bilgileri asla uydurma
 3. Eğer sorunun cevabı kontekstte yoksa "Bu bilgi mevcut dokümanlarımda bulunmamaktadır." de
 4. Cevaplarını net, anlaşılır ve profesyonel şekilde ver
-5. Mümkün olduğunca detaylı ve yapılandırılmış cevaplar ver"""
+5. Mümkün olduğunca detaylı ve yapılandırılmış cevaplar ver
+
+FORMAT KURALLARI:
+- Başlıkları **kalın** yaparak vurgula
+- Önemli terimleri ve anahtar kelimeleri **kalın** yaz
+- Madde listelerini • ile başlat
+- Numaralı listeler kullanırken 1., 2., 3. formatını kullan
+- Cevabını paragraflar halinde organize et"""
 
         # Gemini chat oluştur
         chat = LlmChat(
