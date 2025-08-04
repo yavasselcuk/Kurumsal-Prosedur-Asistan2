@@ -816,6 +816,125 @@ async def get_chat_history(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat geçmişi alınırken hata: {str(e)}")
 
+@api_router.get("/chat-sessions")
+async def get_all_chat_sessions(limit: int = 50, skip: int = 0):
+    """Tüm chat session'larını listele (soru geçmişi için)"""
+    try:
+        # Session'ları gruplandır ve en son mesajı al
+        pipeline = [
+            {
+                "$sort": {"created_at": -1}
+            },
+            {
+                "$group": {
+                    "_id": "$session_id",
+                    "latest_question": {"$first": "$question"},
+                    "latest_answer": {"$first": "$answer"},
+                    "latest_created_at": {"$first": "$created_at"},
+                    "message_count": {"$sum": 1},
+                    "source_documents": {"$first": "$source_documents"},
+                    "context_chunks": {"$first": "$context_chunks"}
+                }
+            },
+            {
+                "$sort": {"latest_created_at": -1}
+            },
+            {
+                "$skip": skip
+            },
+            {
+                "$limit": limit
+            },
+            {
+                "$project": {
+                    "session_id": "$_id",
+                    "latest_question": 1,
+                    "latest_answer": {"$substr": ["$latest_answer", 0, 200]},  # İlk 200 karakter
+                    "latest_created_at": 1,
+                    "message_count": 1,
+                    "source_documents": 1,
+                    "has_sources": {"$gt": [{"$size": {"$ifNull": ["$source_documents", []]}}, 0]},
+                    "_id": 0
+                }
+            }
+        ]
+        
+        chat_sessions = await db.chat_sessions.aggregate(pipeline).to_list(limit)
+        
+        # Toplam session sayısını al
+        total_sessions_pipeline = [
+            {"$group": {"_id": "$session_id"}},
+            {"$count": "total"}
+        ]
+        total_result = await db.chat_sessions.aggregate(total_sessions_pipeline).to_list(1)
+        total_sessions = total_result[0]["total"] if total_result else 0
+        
+        return {
+            "sessions": chat_sessions,
+            "total_sessions": total_sessions,
+            "limit": limit,
+            "skip": skip,
+            "returned_count": len(chat_sessions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat session'ları alınırken hata: {str(e)}")
+
+@api_router.get("/recent-questions")
+async def get_recent_questions(limit: int = 10):
+    """Son sorulan soruları getir"""
+    try:
+        recent_questions = await db.chat_sessions.find(
+            {},
+            {
+                "question": 1,
+                "created_at": 1,
+                "session_id": 1,
+                "source_documents": 1,
+                "_id": 0
+            }
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return {
+            "recent_questions": recent_questions,
+            "count": len(recent_questions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Son sorular alınırken hata: {str(e)}")
+
+@api_router.post("/replay-question")
+async def replay_question(request: dict):
+    """Geçmiş bir soruyu tekrar çalıştır"""
+    try:
+        session_id = request.get("session_id")
+        original_question = request.get("question")
+        
+        if not session_id or not original_question:
+            raise HTTPException(status_code=400, detail="session_id ve question alanları gerekli")
+        
+        # Yeni session ID oluştur
+        new_session_id = str(uuid.uuid4())
+        
+        # Soruyu tekrar çalıştır
+        question_request = QuestionRequest(
+            question=original_question,
+            session_id=new_session_id
+        )
+        
+        # ask_question endpoint'ini kullan
+        result = await ask_question(question_request)
+        
+        return {
+            "message": "Soru başarıyla tekrar çalıştırıldı",
+            "original_session_id": session_id,
+            "new_session_id": new_session_id,
+            "result": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Soru tekrar çalıştırılırken hata: {str(e)}")
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
