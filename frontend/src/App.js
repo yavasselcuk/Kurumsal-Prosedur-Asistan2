@@ -27,6 +27,11 @@ function App() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   
+  // Soru önerisi için yeni state'ler
+  const [questionSuggestions, setQuestionSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
