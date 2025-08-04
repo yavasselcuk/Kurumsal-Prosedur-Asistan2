@@ -752,31 +752,34 @@ async def ask_question(request: QuestionRequest):
             }
         
         # Gemini ile cevap üret
-        answer = await generate_answer_with_gemini(
+        answer, source_docs_info = await generate_answer_with_gemini(
             request.question, 
             similar_chunks, 
             session_id
         )
         
-        # Kaynak dokümanları belirle (chunk'lardan doküman adlarını çıkar)
-        source_documents = []
-        if similar_chunks:
-            # Her chunk için hangi dokümanlardan geldiğini bul
-            for chunk in similar_chunks:
-                # Dokümanları chunk içeriklerine göre bul
-                docs = await db.documents.find(
-                    {"chunks": {"$in": [chunk]}}, 
-                    {"filename": 1}
-                ).to_list(100)
-                for doc in docs:
-                    if doc["filename"] not in source_documents:
-                        source_documents.append(doc["filename"])
+        # Kaynak doküman bilgilerini formatla
+        source_documents = [doc["filename"] for doc in source_docs_info]
+        
+        # Cevaba kaynak bilgilerini ekle
+        if source_docs_info:
+            sources_section = "\n\n---\n\n**📚 Kaynak Dokümanlar:**\n"
+            for i, doc_info in enumerate(source_docs_info, 1):
+                group_info = f" ({doc_info['group_name']})" if doc_info['group_name'] != "Gruplandırılmamış" else ""
+                # Doküman görüntüleme linki oluştur
+                doc_link = f"/api/documents/{doc_info['id']}"
+                sources_section += f"{i}. **{doc_info['filename']}**{group_info}\n   📎 [Dokümanı Görüntüle]({doc_link})\n\n"
+            
+            # Cevabın sonuna kaynak bilgilerini ekle
+            answer_with_sources = answer + sources_section
+        else:
+            answer_with_sources = answer
         
         # Chat geçmişini kaydet
         chat_session = ChatSession(
             session_id=session_id,
             question=request.question,
-            answer=answer,
+            answer=answer_with_sources,
             context_chunks=similar_chunks,
             source_documents=source_documents
         )
@@ -785,10 +788,11 @@ async def ask_question(request: QuestionRequest):
         
         return {
             "question": request.question,
-            "answer": answer,
+            "answer": answer_with_sources,
             "session_id": session_id,
             "context_found": True,
-            "context_chunks_count": len(similar_chunks)
+            "context_chunks_count": len(similar_chunks),
+            "source_documents": source_docs_info  # Detaylı kaynak bilgileri
         }
         
     except Exception as e:
