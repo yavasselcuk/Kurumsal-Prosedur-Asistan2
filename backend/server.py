@@ -357,13 +357,31 @@ async def search_similar_chunks(query: str, top_k: int = 5) -> List[str]:
         logging.error(f"Benzer chunk arama hatası: {str(e)}")
         return []
 
-async def generate_answer_with_gemini(question: str, context_chunks: List[str], session_id: str) -> str:
-    """Gemini ile cevap üretme"""
+async def generate_answer_with_gemini(question: str, context_chunks: List[str], session_id: str) -> tuple[str, List[str]]:
+    """Gemini ile cevap üretme - kaynak dokümanlarla birlikte"""
     try:
         # Kontekst oluştur
         context = "\n\n".join(context_chunks)
         
-        # System message - Türkçe prompt
+        # Kaynak dokümanları bul
+        source_documents = []
+        if context_chunks:
+            for chunk in context_chunks:
+                # Her chunk için hangi dokümanlardan geldiğini bul
+                docs = await db.documents.find(
+                    {"chunks": {"$in": [chunk]}}, 
+                    {"filename": 1, "id": 1, "group_name": 1}
+                ).to_list(100)
+                for doc in docs:
+                    doc_info = {
+                        "filename": doc["filename"],
+                        "id": doc["id"],
+                        "group_name": doc.get("group_name", "Gruplandırılmamış")
+                    }
+                    if doc_info not in source_documents:
+                        source_documents.append(doc_info)
+        
+        # System message - Türkçe prompt with enhanced rules
         system_message = """Sen kurumsal prosedür dokümanlarına dayalı bir asistansın. Sadece verilen doküman içeriğini kullanarak Türkçe cevap ver.
 
 ÖNEMLİ KURALLAR:
@@ -378,7 +396,9 @@ FORMAT KURALLARI:
 - Önemli terimleri ve anahtar kelimeleri **kalın** yaz
 - Madde listelerini • ile başlat
 - Numaralı listeler kullanırken 1., 2., 3. formatını kullan
-- Cevabını paragraflar halinde organize et"""
+- Cevabını paragraflar halinde organize et
+- Bahsettiğin form adlarını, prosedür kodlarını ve doküman adlarını **kalın** yaz
+- Cevabın sonunda KAYNAK bölümü EKLEME (bu sistem tarafından otomatik eklenecek)"""
 
         # Gemini chat oluştur
         chat = LlmChat(
@@ -387,10 +407,15 @@ FORMAT KURALLARI:
             system_message=system_message
         ).with_model("gemini", "gemini-2.0-flash").with_max_tokens(4096)
         
+        # Form ve doküman adlarını vurgulama için ek talimat
+        enhanced_context = f"""Kontekst Bilgileri:
+{context}
+
+NOT: Cevabında form adları, prosedür kodları (örn: IK-P01, IK-F02 gibi) ve doküman isimlerini **kalın** olarak yaz."""
+        
         # Kullanıcı mesajı oluştur
         user_message = UserMessage(
-            text=f"""Kontekst Bilgileri:
-{context}
+            text=f"""{enhanced_context}
 
 Soru: {question}
 
@@ -399,11 +424,13 @@ Lütfen sadece yukarıdaki kontekst bilgilerini kullanarak soruyu cevapla."""
         
         # Cevap al
         response = await chat.send_message(user_message)
-        return response
+        
+        # Response ve kaynak dokümanları döndür
+        return response, source_documents
         
     except Exception as e:
         logging.error(f"Gemini cevap üretme hatası: {str(e)}")
-        return "Üzgünüm, şu anda sorunuzu cevaplayamıyorum. Lütfen daha sonra tekrar deneyin."
+        return "Üzgünüm, şu anda sorunuzu cevaplayamıyorum. Lütfen daha sonra tekrar deneyin.", []
 
 # API Endpoints
 @api_router.get("/")
