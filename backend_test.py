@@ -1826,13 +1826,13 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests focusing on Enhanced AI Response Formatting"""
+        """Run all backend tests focusing on Source Documents and Links Integration"""
         print("=" * 80)
-        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - ENHANCED FORMATTING")
+        print("KURUMSAL PROSEDÜR ASISTANI (KPA) BACKEND API TESTS - SOURCE DOCUMENTS & LINKS")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🎨 NEW FEATURE PRIORITY: Enhanced AI Response Formatting System")
-        print("📋 Testing: Upload → Process → Ask Questions → Verify Markdown Formatting")
+        print("📚 NEW FEATURE PRIORITY: Enhanced Source Documents and Links Integration")
+        print("📋 Testing: Upload → Process → Ask Questions → Verify Source Documents → Test Links")
         print()
         
         # Test connectivity first
@@ -1840,12 +1840,12 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Skipping other tests.")
             return self.get_summary()
         
-        # 🎨 NEW FEATURE TEST FIRST - Enhanced AI Response Formatting
-        print("🎨 NEW FEATURE TEST - ENHANCED AI RESPONSE FORMATTING:")
-        print("-" * 60)
+        # 📚 NEW FEATURE TEST FIRST - Source Documents and Links Integration
+        print("📚 NEW FEATURE TEST - SOURCE DOCUMENTS AND LINKS INTEGRATION:")
+        print("-" * 70)
         
-        # 1. Enhanced AI Response Formatting (NEW FEATURE)
-        self.test_enhanced_ai_response_formatting()
+        # 1. Source Documents and Links Integration (NEW FEATURE)
+        self.test_source_documents_and_links_integration()
         
         print("\n📊 BASIC SYSTEM TESTS:")
         print("-" * 30)
