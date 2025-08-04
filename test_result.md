@@ -502,15 +502,27 @@ frontend:
           agent: "testing"
           comment: "✅ API entegrasyonu mükemmel çalışıyor. 4 API çağrısı tespit edildi: /api/status ve /api/documents endpoint'leri düzenli olarak çağrılıyor. Konsol hatası yok, network istekleri başarılı."
 
+  - task: "Question History Backend API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "🆕 QUESTION HISTORY BACKEND API TESTING COMPLETED SUCCESSFULLY! NEW FEATURE tested and working perfectly with 100% success rate (15/15 tests passed). Key findings: ✅ 1) GET /api/chat-sessions WORKING PERFECTLY - Lists all chat sessions grouped by session_id with proper pagination (limit/skip parameters), returns sessions with latest_question, latest_answer (truncated to ~200 chars), latest_created_at, message_count, source_documents, and has_sources fields as specified, ✅ 2) GET /api/recent-questions WORKING PERFECTLY - Returns most recent questions with proper sorting by created_at DESC, includes question, created_at, session_id, and source_documents fields, limit parameter working correctly (default 10, tested with custom limit=3), ✅ 3) POST /api/replay-question WORKING PERFECTLY - Successfully replays questions from existing sessions, creates new session_id for replayed questions, re-runs question processing and returns proper response structure with original_session_id, new_session_id, and complete result object, ✅ 4) INTEGRATION TEST PASSED - Full workflow tested: created 3 test sessions → listed chat sessions (3/3 found) → retrieved recent questions (3/3 found) → replayed question successfully with new session creation. All Question History endpoints are production-ready and provide comprehensive chat history management functionality for users to review and replay their previous questions."
+
 metadata:
   created_by: "testing_agent"
-  version: "1.2"
-  test_sequence: 3
+  version: "1.3"
+  test_sequence: 4
   run_ui: true
 
 test_plan:
   current_focus:
-    - "Source Documents and Links Integration"
+    - "Question History Backend API"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
