@@ -491,7 +491,30 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                             ? 'bg-red-100 text-red-800 border border-red-200'
                             : 'bg-gray-100 text-gray-900'
                         }`}>
-                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          {message.type === 'ai' ? (
+                            <div className="prose prose-sm max-w-none">
+                              <ReactMarkdown
+                                components={{
+                                  // Başlıkları özelleştir
+                                  h1: ({children}) => <h1 className="text-lg font-bold text-gray-900 mb-2">{children}</h1>,
+                                  h2: ({children}) => <h2 className="text-base font-bold text-gray-900 mb-2">{children}</h2>,
+                                  h3: ({children}) => <h3 className="text-sm font-bold text-gray-900 mb-1">{children}</h3>,
+                                  // Kalın metinleri özelleştir
+                                  strong: ({children}) => <strong className="font-bold text-gray-900">{children}</strong>,
+                                  // Paragrafları özelleştir
+                                  p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                                  // Listeleri özelleştir
+                                  ul: ({children}) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                                  ol: ({children}) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                                  li: ({children}) => <li className="text-gray-900">{children}</li>,
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          )}
                           <div className="flex justify-between items-center mt-2 text-xs opacity-70">
                             <span>{message.timestamp}</span>
                             {message.type === 'ai' && message.contextFound && (
