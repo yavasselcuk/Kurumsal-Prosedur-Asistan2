@@ -561,6 +561,19 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
             💬 Soru-Cevap
           </button>
           <button
+            onClick={() => {
+              setActiveTab('history');
+              fetchChatSessions(); // Geçmişi yenile
+            }}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'history'
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            📜 Soru Geçmişi
+          </button>
+          <button
             onClick={() => setActiveTab('documents')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'documents'
