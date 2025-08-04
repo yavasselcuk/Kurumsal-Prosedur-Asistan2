@@ -1046,6 +1046,55 @@ async def replay_question(request: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Soru tekrar çalıştırılırken hata: {str(e)}")
 
+@api_router.get("/suggest-questions")
+async def suggest_questions(q: str, limit: int = 5):
+    """Kısmi sorgu için akıllı soru önerileri"""
+    try:
+        if not q or len(q.strip()) < 2:
+            return {
+                "suggestions": [],
+                "query": q,
+                "count": 0
+            }
+        
+        suggestions = await generate_question_suggestions(q.strip(), limit=limit)
+        
+        return {
+            "suggestions": suggestions,
+            "query": q,
+            "count": len(suggestions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Soru önerisi alınırken hata: {str(e)}")
+
+@api_router.get("/similar-questions")
+async def get_similar_questions(q: str, similarity: float = 0.6, limit: int = 5):
+    """Sorguya semantik olarak benzer geçmiş soruları bul"""
+    try:
+        if not q or len(q.strip()) < 3:
+            return {
+                "similar_questions": [],
+                "query": q,
+                "count": 0
+            }
+        
+        similar_questions = await search_similar_questions(
+            q.strip(), 
+            min_similarity=similarity, 
+            top_k=limit
+        )
+        
+        return {
+            "similar_questions": similar_questions,
+            "query": q,
+            "min_similarity": similarity,
+            "count": len(similar_questions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Benzer sorular aranırken hata: {str(e)}")
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
