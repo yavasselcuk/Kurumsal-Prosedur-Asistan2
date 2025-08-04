@@ -1266,6 +1266,246 @@ class KPABackendTester:
                 None
             )
 
+    def test_enhanced_ai_response_formatting(self):
+        """🎨 NEW FEATURE: Test Enhanced AI Response Formatting System"""
+        try:
+            print("   🎨 Testing Enhanced AI Response Formatting System...")
+            print("   📋 Testing: Upload document → Ask questions → Verify markdown formatting with **bold** text")
+            
+            # Step 1: Create a test document with HR procedures content
+            print("   Step 1: Creating test document with HR procedures...")
+            
+            # Create a DOCX-like content with HR procedures information
+            hr_content = (
+                b'PK\x03\x04\x14\x08'  # DOCX header
+                b'INSAN KAYNAKLARI PROSEDURU\n\n'
+                b'1. GENEL BILGILER\n'
+                b'Bu prosedur, insan kaynaklari departmaninin temel isleyis adimlarini belirler.\n\n'
+                b'2. CALISAN HAKLARI\n'
+                b'Calisanlar asagidaki haklara sahiptir:\n'
+                b'- Yillik izin hakki: 14-26 gun arasi\n'
+                b'- Saglik sigortasi: Tam kapsamli\n'
+                b'- Egitim destegi: Yillik 5000 TL\n'
+                b'- Esnek calisma saatleri\n\n'
+                b'3. ISLEM ADIMLARI\n'
+                b'Insan kaynaklari prosedurlerinin temel adimlari:\n'
+                b'a) Basvuru degerlendirmesi\n'
+                b'b) Mulakat sureci\n'
+                b'c) Referans kontrolu\n'
+                b'd) Karar verme\n'
+                b'e) Ise baslama sureci\n\n'
+                b'4. ONEMLI NOTLAR\n'
+                b'Tum islemler gizlilik ilkesi cercevesinde yurutulur.\n'
+                b'Esitlik ve adalet temel prensiplerdir.\n'
+                + b'' * 300  # Padding
+            )
+            
+            files = {'file': ('hr_procedures_formatting_test.docx', hr_content, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')}
+            
+            upload_response = self.session.post(f"{self.base_url}/upload-document", files=files)
+            
+            if upload_response.status_code == 200:
+                upload_data = upload_response.json()
+                document_id = upload_data.get("document_id")
+                
+                self.log_test(
+                    "Enhanced Formatting - Document Upload",
+                    True,
+                    f"✅ HR procedures document uploaded successfully: {upload_data.get('message', '')}",
+                    {"document_id": document_id}
+                )
+                
+                # Step 2: Wait for document processing
+                print("   Step 2: Waiting for document processing...")
+                
+                max_wait_time = 30
+                wait_interval = 2
+                waited_time = 0
+                faiss_ready = False
+                
+                while waited_time < max_wait_time:
+                    status_response = self.session.get(f"{self.base_url}/status")
+                    if status_response.status_code == 200:
+                        status_data = status_response.json()
+                        faiss_ready = status_data.get("faiss_index_ready", False)
+                        total_chunks = status_data.get("total_chunks", 0)
+                        
+                        if faiss_ready and total_chunks > 0:
+                            print(f"   ✅ FAISS index ready with {total_chunks} chunks after {waited_time}s")
+                            break
+                    
+                    time.sleep(wait_interval)
+                    waited_time += wait_interval
+                    print(f"   ⏳ Waiting for processing... ({waited_time}s/{max_wait_time}s)")
+                
+                if faiss_ready:
+                    self.log_test(
+                        "Enhanced Formatting - Document Processing",
+                        True,
+                        f"✅ Document processed and FAISS index ready after {waited_time}s",
+                        {"wait_time": waited_time, "faiss_ready": faiss_ready}
+                    )
+                    
+                    # Step 3: Test Q&A with formatting-focused questions
+                    print("   Step 3: Testing Q&A with Turkish questions for formatting...")
+                    
+                    test_questions = [
+                        "İnsan kaynakları prosedürlerinin adımları nelerdir?",
+                        "Çalışan hakları hakkında bilgi ver",
+                        "İK departmanının temel işleyiş adımları neler?"
+                    ]
+                    
+                    formatting_success = True
+                    formatting_results = []
+                    successful_questions = 0
+                    
+                    for i, question in enumerate(test_questions, 1):
+                        print(f"   Question {i}: {question}")
+                        
+                        question_request = {
+                            "question": question,
+                            "session_id": f"formatting_test_session_{int(time.time())}"
+                        }
+                        
+                        question_response = self.session.post(
+                            f"{self.base_url}/ask-question",
+                            json=question_request
+                        )
+                        
+                        if question_response.status_code == 200:
+                            try:
+                                question_data = question_response.json()
+                                answer = question_data.get("answer", "")
+                                context_found = question_data.get("context_found", False)
+                                
+                                # Check for markdown formatting in the answer
+                                formatting_checks = {
+                                    "has_bold_text": "**" in answer,
+                                    "has_meaningful_content": len(answer) > 50,
+                                    "context_found": context_found,
+                                    "answer_length": len(answer)
+                                }
+                                
+                                # Count bold formatting instances
+                                bold_count = answer.count("**") // 2  # Each bold text has opening and closing **
+                                formatting_checks["bold_count"] = bold_count
+                                
+                                # Check for Turkish content and structure
+                                turkish_indicators = any(word in answer.lower() for word in 
+                                                       ["adım", "prosedür", "çalışan", "hak", "işlem", "süreç"])
+                                formatting_checks["turkish_content"] = turkish_indicators
+                                
+                                # Check for list formatting
+                                has_lists = any(indicator in answer for indicator in ["•", "1.", "2.", "3.", "-"])
+                                formatting_checks["has_lists"] = has_lists
+                                
+                                result = {
+                                    "question": question,
+                                    "answer_preview": answer[:200] + "..." if len(answer) > 200 else answer,
+                                    "formatting_checks": formatting_checks,
+                                    "success": context_found and bold_count > 0 and len(answer) > 50
+                                }
+                                
+                                formatting_results.append(result)
+                                
+                                if result["success"]:
+                                    successful_questions += 1
+                                    print(f"   ✅ Question {i}: Formatted answer received (Bold: {bold_count}, Length: {len(answer)})")
+                                else:
+                                    print(f"   ⚠️ Question {i}: Answer received but formatting issues detected")
+                                    
+                            except json.JSONDecodeError as e:
+                                formatting_results.append({
+                                    "question": question,
+                                    "error": f"JSON decode error: {str(e)}",
+                                    "success": False
+                                })
+                                formatting_success = False
+                                
+                        else:
+                            error_msg = f"HTTP {question_response.status_code}"
+                            try:
+                                error_data = question_response.json()
+                                error_msg += f": {error_data.get('detail', 'Unknown error')}"
+                            except:
+                                error_msg += f": {question_response.text[:100]}"
+                            
+                            formatting_results.append({
+                                "question": question,
+                                "error": error_msg,
+                                "success": False
+                            })
+                            formatting_success = False
+                    
+                    # Step 4: Evaluate formatting results
+                    total_bold_instances = sum(r.get("formatting_checks", {}).get("bold_count", 0) 
+                                             for r in formatting_results if "formatting_checks" in r)
+                    
+                    avg_answer_length = sum(r.get("formatting_checks", {}).get("answer_length", 0) 
+                                          for r in formatting_results if "formatting_checks" in r) / len(test_questions)
+                    
+                    formatting_quality = successful_questions / len(test_questions)
+                    
+                    if formatting_success and successful_questions >= 2 and total_bold_instances >= 3:
+                        self.log_test(
+                            "Enhanced AI Response Formatting - NEW FEATURE",
+                            True,
+                            f"✅ ENHANCED FORMATTING WORKING PERFECTLY! Successfully answered {successful_questions}/{len(test_questions)} questions with proper markdown formatting. Total bold instances: {total_bold_instances}, Average answer length: {avg_answer_length:.0f} chars. System message formatting rules are being applied correctly.",
+                            {
+                                "successful_questions": successful_questions,
+                                "total_questions": len(test_questions),
+                                "total_bold_instances": total_bold_instances,
+                                "avg_answer_length": avg_answer_length,
+                                "formatting_quality": formatting_quality,
+                                "detailed_results": formatting_results
+                            }
+                        )
+                    else:
+                        self.log_test(
+                            "Enhanced AI Response Formatting - NEW FEATURE",
+                            False,
+                            f"❌ FORMATTING ISSUES DETECTED! Successful questions: {successful_questions}/{len(test_questions)}, Bold instances: {total_bold_instances}, Quality: {formatting_quality:.1%}. System message formatting rules may not be working properly.",
+                            {
+                                "successful_questions": successful_questions,
+                                "total_questions": len(test_questions),
+                                "total_bold_instances": total_bold_instances,
+                                "avg_answer_length": avg_answer_length,
+                                "formatting_quality": formatting_quality,
+                                "detailed_results": formatting_results
+                            }
+                        )
+                    
+                    # Step 5: Clean up test document
+                    if document_id:
+                        cleanup_response = self.session.delete(f"{self.base_url}/documents/{document_id}")
+                        if cleanup_response.status_code == 200:
+                            print("   🧹 Test document cleaned up successfully")
+                        
+                else:
+                    self.log_test(
+                        "Enhanced AI Response Formatting - NEW FEATURE",
+                        False,
+                        f"❌ FORMATTING TEST FAILED! Document processing timeout after {max_wait_time}s. FAISS index not ready, cannot test AI response formatting.",
+                        {"waited_time": waited_time, "faiss_ready": faiss_ready}
+                    )
+                    
+            else:
+                error_data = upload_response.json() if upload_response.status_code == 400 else upload_response.text
+                self.log_test(
+                    "Enhanced AI Response Formatting - NEW FEATURE",
+                    False,
+                    f"❌ FORMATTING TEST FAILED! Could not upload test document: HTTP {upload_response.status_code}",
+                    error_data
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Enhanced AI Response Formatting - NEW FEATURE",
+                False,
+                f"❌ FORMATTING TEST ERROR! Exception during enhanced formatting test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests focusing on PRIORITY: ChatSession Pydantic Validation Fix"""
         print("=" * 80)
