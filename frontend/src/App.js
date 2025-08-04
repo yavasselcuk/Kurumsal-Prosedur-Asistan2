@@ -784,23 +784,81 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
 
                 {/* Question Input */}
                 <div className="border-t border-gray-200 p-6">
-                  <form onSubmit={handleQuestionSubmit} className="flex space-x-4">
-                    <input
-                      type="text"
-                      value={question}
-                      onChange={(e) => setQuestion(e.target.value)}
-                      placeholder="Prosedürler hakkında soru sorun..."
-                      disabled={isLoading}
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading || !question.trim()}
-                      className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-                    >
-                      <span>Gönder</span>
-                      <span>🚀</span>
-                    </button>
+                  <form onSubmit={handleQuestionSubmit} className="relative">
+                    <div className="flex space-x-4">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={question}
+                          onChange={handleQuestionChange}
+                          onFocus={() => {
+                            if (questionSuggestions.length > 0) {
+                              setShowSuggestions(true);
+                            }
+                          }}
+                          onBlur={hideSuggestions}
+                          placeholder="Prosedürler hakkında soru sorun..."
+                          disabled={isLoading}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                        
+                        {/* Soru Önerileri Dropdown */}
+                        {showSuggestions && (questionSuggestions.length > 0 || loadingSuggestions) && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                            {loadingSuggestions ? (
+                              <div className="p-3 text-center text-gray-500">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                                Öneriler yükleniyor...
+                              </div>
+                            ) : (
+                              <div className="py-1">
+                                <div className="px-3 py-2 text-xs font-medium text-gray-500 bg-gray-50 border-b">
+                                  💡 Soru Önerileri
+                                </div>
+                                {questionSuggestions.map((suggestion, index) => (
+                                  <button
+                                    key={index}
+                                    type="button"
+                                    onClick={() => handleSuggestionSelect(suggestion)}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                  >
+                                    <div className="flex items-start space-x-2">
+                                      <span className="text-sm mt-0.5">{suggestion.icon}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-900 line-clamp-2">
+                                          {suggestion.text}
+                                        </p>
+                                        <div className="flex items-center space-x-2 mt-1">
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
+                                            suggestion.type === 'similar' ? 'bg-blue-100 text-blue-800' :
+                                            suggestion.type === 'partial' ? 'bg-green-100 text-green-800' :
+                                            'bg-purple-100 text-purple-800'
+                                          }`}>
+                                            {suggestion.type === 'similar' ? 'Benzer' :
+                                             suggestion.type === 'partial' ? 'Kısmi' : 'Önerilen'}
+                                          </span>
+                                          <span className="text-xs text-gray-500">
+                                            {Math.round(suggestion.similarity * 100)}% uyumlu
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isLoading || !question.trim()}
+                        className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                      >
+                        <span>Gönder</span>
+                        <span>🚀</span>
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>
