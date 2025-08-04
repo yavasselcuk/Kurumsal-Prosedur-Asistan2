@@ -20,6 +20,13 @@ function App() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupColor, setNewGroupColor] = useState('#3b82f6');
+  
+  // Soru geçmişi için yeni state'ler
+  const [chatSessions, setChatSessions] = useState([]);
+  const [recentQuestions, setRecentQuestions] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
