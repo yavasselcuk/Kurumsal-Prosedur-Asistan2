@@ -107,6 +107,116 @@ function App() {
     }
   };
 
+  // Soru geçmişi fonksiyonları
+  const fetchChatSessions = async () => {
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/chat-sessions?limit=20`);
+      const data = await response.json();
+      setChatSessions(data.sessions || []);
+    } catch (error) {
+      console.error('Chat geçmişi alınamadı:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const fetchRecentQuestions = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/recent-questions?limit=10`);
+      const data = await response.json();
+      setRecentQuestions(data.recent_questions || []);
+    } catch (error) {
+      console.error('Son sorular alınamadı:', error);
+    }
+  };
+
+  const handleReplayQuestion = async (sessionId, question) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`${backendUrl}/api/replay-question`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          question: question
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Yeni cevabı chat geçmişine ekle
+        const userMessage = {
+          type: 'user',
+          content: question,
+          timestamp: new Date().toLocaleTimeString('tr-TR')
+        };
+
+        const aiMessage = {
+          type: 'ai',
+          content: data.result.answer,
+          contextFound: data.result.context_found,
+          chunksCount: data.result.context_chunks_count,
+          timestamp: new Date().toLocaleTimeString('tr-TR')
+        };
+
+        setChatHistory([userMessage, aiMessage]);
+        setActiveTab('chat'); // Chat tab'ına geç
+        
+        // Session'ı güncelle
+        setSessionId(data.result.session_id);
+        
+        // Geçmişi yenile
+        fetchChatSessions();
+        
+      } else {
+        alert(`Hata: ${data.detail || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      alert(`Soru tekrar çalıştırılırken hata: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const viewSessionHistory = async (sessionId) => {
+    try {
+      const response = await fetch(`${backendUrl}/api/chat-history/${sessionId}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Session geçmişini chat formatına çevir
+        const sessionChat = [];
+        data.chat_history.forEach(chat => {
+          sessionChat.push({
+            type: 'user',
+            content: chat.question,
+            timestamp: new Date(chat.created_at).toLocaleTimeString('tr-TR')
+          });
+          sessionChat.push({
+            type: 'ai',
+            content: chat.answer,
+            contextFound: true,
+            chunksCount: chat.context_chunks?.length || 0,
+            timestamp: new Date(chat.created_at).toLocaleTimeString('tr-TR')
+          });
+        });
+        
+        setChatHistory(sessionChat);
+        setSelectedSession(sessionId);
+        setActiveTab('chat'); // Chat tab'ına geç
+      } else {
+        alert('Session geçmişi alınamadı.');
+      }
+    } catch (error) {
+      alert(`Geçmiş görüntülenirken hata: ${error.message}`);
+    }
+  };
+
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
       alert('Grup adı boş olamaz.');
