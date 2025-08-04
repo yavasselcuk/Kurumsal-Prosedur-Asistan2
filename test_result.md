@@ -355,6 +355,18 @@ backend:
           comment: "🎉 ENHANCED SOURCE DOCUMENTS AND LINKS FEATURE WORKING PERFECTLY! Comprehensive testing completed with 100% success rate (8/8 tests passed). Key findings: ✅ 1) Q&A RESPONSES INCLUDE SOURCE SECTION - All test questions returned responses with '📚 Kaynak Dokümanlar' section properly formatted, ✅ 2) BOLD FILENAME FORMATTING WORKING - Document filenames displayed in **bold** format as specified (detected 3, 2, 3 bold filenames across test questions), ✅ 3) DOCUMENT VIEW LINKS FUNCTIONAL - All document links in format [Dokümanı Görüntüle](/api/documents/{id}) working correctly (detected 3, 2, 3 links across test questions), ✅ 4) DETAILED SOURCE INFORMATION - source_documents field includes complete document information with filename, id, and group_name fields, ✅ 5) DOCUMENT ENDPOINTS WORKING - All /api/documents/{id} endpoints return proper document details with required fields (id, filename, file_type, file_size, chunk_count). Feature is production-ready and significantly enhances user experience by providing clear source attribution and easy document access."
 
 frontend:
+  - task: "Question History Feature Implementation"
+    implemented: true
+    working: true
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "🎉 NEW QUESTION HISTORY FEATURE TESTING COMPLETED SUCCESSFULLY! Comprehensive testing with 100% success rate. Key findings: ✅ 1) TAB NAVIGATION PERFECT - New '📜 Soru Geçmişi' tab correctly positioned between '💬 Soru-Cevap' and '📁 Doküman Yönetimi', tab switching works flawlessly with proper active state highlighting, ✅ 2) HISTORY TAB CONTENT FULLY FUNCTIONAL - '📜 Soru Geçmişi' header displays correctly, '🔄 Yenile' refresh button working, '⚡ Son Sorularım' section shows recent questions in responsive grid (6 questions), '📋 Tüm Konuşmalarım' section displays detailed chat sessions with proper metadata, ✅ 3) INTERACTIVE ELEMENTS WORKING - Recent questions clickable and redirect to chat tab correctly, '🔄 Tekrar Sor' replay buttons functional in conversations list, '👁️ Görüntüle' view buttons present and working, question replay functionality successfully loads answers in chat interface, ✅ 4) DATA INTEGRATION EXCELLENT - Real chat history data loading from backend APIs, session dates and message counts displaying correctly, source document indicators working ('📚 Kaynaklı' badges), ✅ 5) RESPONSIVE DESIGN PERFECT - Mobile viewport (390x844) displays history tab beautifully with proper grid adaptation, Tablet viewport (768x1024) shows optimal layout, All interactive elements accessible on all screen sizes, ✅ 6) BACKEND INTEGRATION SEAMLESS - API calls to /api/chat-sessions and /api/recent-questions working perfectly, Question replay functionality creates new sessions correctly, No JavaScript errors detected during testing. The Question History feature is production-ready and significantly enhances user experience by providing comprehensive chat history management as requested in the review."
+
   - task: "Homepage and Navigation Test"
     implemented: true
     working: true
