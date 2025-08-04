@@ -1691,6 +1691,13 @@ class KPABackendTester:
                             if link_pattern in answer:
                                 document_links.append(doc['id'])
                         
+                        # Debug: Print answer excerpt to see actual format
+                        if i == 1:  # Only for first question to avoid spam
+                            source_section_start = answer.find("📚 Kaynak Dokümanlar")
+                            if source_section_start != -1:
+                                source_excerpt = answer[source_section_start:source_section_start+500]
+                                print(f"   🔍 Source section excerpt: {source_excerpt[:200]}...")
+                        
                         # Test 4: Check source_documents field structure
                         detailed_source_info = isinstance(source_documents, list) and len(source_documents) > 0
                         if detailed_source_info and len(source_documents) > 0:
