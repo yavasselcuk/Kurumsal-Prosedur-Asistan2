@@ -1557,7 +1557,12 @@ class KPABackendTester:
                     })
                     print(f"   ✅ Uploaded: {doc_info['filename']}")
                 else:
-                    print(f"   ❌ Failed to upload: {doc_info['filename']}")
+                    print(f"   ❌ Failed to upload: {doc_info['filename']} - HTTP {upload_response.status_code}")
+                    try:
+                        error_data = upload_response.json()
+                        print(f"      Error: {error_data.get('detail', 'Unknown error')}")
+                    except:
+                        print(f"      Error: {upload_response.text[:200]}")
             
             if len(uploaded_documents) < 2:
                 self.log_test(
