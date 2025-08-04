@@ -1869,6 +1869,562 @@ class KPABackendTester:
                 None
             )
 
+    def test_question_history_chat_sessions(self):
+        """🆕 NEW FEATURE: Test GET /api/chat-sessions - Question History feature"""
+        try:
+            print("   📚 Testing Question History - Chat Sessions endpoint...")
+            
+            # Test basic endpoint functionality
+            response = self.session.get(f"{self.base_url}/chat-sessions")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check required fields
+                required_fields = ["sessions", "total_sessions", "limit", "skip", "returned_count"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    sessions = data.get("sessions", [])
+                    total_sessions = data.get("total_sessions", 0)
+                    returned_count = data.get("returned_count", 0)
+                    
+                    # Validate session structure if sessions exist
+                    session_structure_valid = True
+                    session_errors = []
+                    
+                    if sessions:
+                        for i, session in enumerate(sessions[:3]):  # Check first 3 sessions
+                            required_session_fields = ["session_id", "latest_question", "latest_answer", "latest_created_at", "message_count", "source_documents", "has_sources"]
+                            missing_session_fields = [field for field in required_session_fields if field not in session]
+                            
+                            if missing_session_fields:
+                                session_errors.append(f"Session {i}: missing {missing_session_fields}")
+                                session_structure_valid = False
+                            
+                            # Check that latest_answer is truncated (should be around 200 chars)
+                            latest_answer = session.get("latest_answer", "")
+                            if len(latest_answer) > 250:  # Allow some flexibility
+                                session_errors.append(f"Session {i}: latest_answer not truncated ({len(latest_answer)} chars)")
+                    
+                    if session_structure_valid:
+                        self.log_test(
+                            "Question History - GET /api/chat-sessions",
+                            True,
+                            f"✅ Chat sessions endpoint working perfectly. Total sessions: {total_sessions}, Returned: {returned_count}, Session structure validated",
+                            {"total_sessions": total_sessions, "returned_count": returned_count, "sessions_sample": sessions[:2]}
+                        )
+                        
+                        # Test pagination parameters
+                        self.test_chat_sessions_pagination()
+                        
+                    else:
+                        self.log_test(
+                            "Question History - GET /api/chat-sessions",
+                            False,
+                            f"❌ Session structure validation errors: {'; '.join(session_errors)}",
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "Question History - GET /api/chat-sessions",
+                        False,
+                        f"❌ Response missing required fields: {missing_fields}",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "Question History - GET /api/chat-sessions",
+                    False,
+                    f"❌ Chat sessions endpoint failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - GET /api/chat-sessions",
+                False,
+                f"❌ Connection error during chat sessions test: {str(e)}",
+                None
+            )
+
+    def test_chat_sessions_pagination(self):
+        """Test pagination parameters for chat sessions"""
+        try:
+            # Test with limit and skip parameters
+            response = self.session.get(f"{self.base_url}/chat-sessions?limit=5&skip=0")
+            
+            if response.status_code == 200:
+                data = response.json()
+                limit = data.get("limit", 0)
+                skip = data.get("skip", 0)
+                returned_count = data.get("returned_count", 0)
+                
+                if limit == 5 and skip == 0 and returned_count <= 5:
+                    self.log_test(
+                        "Question History - Chat Sessions Pagination",
+                        True,
+                        f"✅ Pagination working correctly. Limit: {limit}, Skip: {skip}, Returned: {returned_count}",
+                        {"limit": limit, "skip": skip, "returned_count": returned_count}
+                    )
+                else:
+                    self.log_test(
+                        "Question History - Chat Sessions Pagination",
+                        False,
+                        f"❌ Pagination parameters not working correctly. Expected limit=5, skip=0, got limit={limit}, skip={skip}, returned={returned_count}",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "Question History - Chat Sessions Pagination",
+                    False,
+                    f"❌ Pagination test failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - Chat Sessions Pagination",
+                False,
+                f"❌ Error during pagination test: {str(e)}",
+                None
+            )
+
+    def test_recent_questions_endpoint(self):
+        """🆕 NEW FEATURE: Test GET /api/recent-questions - Recent questions endpoint"""
+        try:
+            print("   🕒 Testing Recent Questions endpoint...")
+            
+            # Test basic endpoint functionality
+            response = self.session.get(f"{self.base_url}/recent-questions")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check required fields
+                required_fields = ["recent_questions", "count"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    recent_questions = data.get("recent_questions", [])
+                    count = data.get("count", 0)
+                    
+                    # Validate question structure if questions exist
+                    question_structure_valid = True
+                    question_errors = []
+                    
+                    if recent_questions:
+                        for i, question in enumerate(recent_questions[:3]):  # Check first 3 questions
+                            required_question_fields = ["question", "created_at", "session_id", "source_documents"]
+                            missing_question_fields = [field for field in required_question_fields if field not in question]
+                            
+                            if missing_question_fields:
+                                question_errors.append(f"Question {i}: missing {missing_question_fields}")
+                                question_structure_valid = False
+                    
+                    if question_structure_valid:
+                        self.log_test(
+                            "Question History - GET /api/recent-questions",
+                            True,
+                            f"✅ Recent questions endpoint working perfectly. Count: {count}, Questions structure validated",
+                            {"count": count, "questions_sample": recent_questions[:2]}
+                        )
+                        
+                        # Test with custom limit parameter
+                        self.test_recent_questions_limit()
+                        
+                    else:
+                        self.log_test(
+                            "Question History - GET /api/recent-questions",
+                            False,
+                            f"❌ Question structure validation errors: {'; '.join(question_errors)}",
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "Question History - GET /api/recent-questions",
+                        False,
+                        f"❌ Response missing required fields: {missing_fields}",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "Question History - GET /api/recent-questions",
+                    False,
+                    f"❌ Recent questions endpoint failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - GET /api/recent-questions",
+                False,
+                f"❌ Connection error during recent questions test: {str(e)}",
+                None
+            )
+
+    def test_recent_questions_limit(self):
+        """Test limit parameter for recent questions"""
+        try:
+            # Test with custom limit
+            response = self.session.get(f"{self.base_url}/recent-questions?limit=3")
+            
+            if response.status_code == 200:
+                data = response.json()
+                count = data.get("count", 0)
+                recent_questions = data.get("recent_questions", [])
+                
+                if count <= 3 and len(recent_questions) <= 3:
+                    self.log_test(
+                        "Question History - Recent Questions Limit",
+                        True,
+                        f"✅ Limit parameter working correctly. Requested limit=3, got count={count}, questions={len(recent_questions)}",
+                        {"requested_limit": 3, "count": count, "actual_questions": len(recent_questions)}
+                    )
+                else:
+                    self.log_test(
+                        "Question History - Recent Questions Limit",
+                        False,
+                        f"❌ Limit parameter not working. Requested limit=3, got count={count}, questions={len(recent_questions)}",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "Question History - Recent Questions Limit",
+                    False,
+                    f"❌ Limit test failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - Recent Questions Limit",
+                False,
+                f"❌ Error during limit test: {str(e)}",
+                None
+            )
+
+    def test_replay_question_endpoint(self):
+        """🆕 NEW FEATURE: Test POST /api/replay-question - Replay question functionality"""
+        try:
+            print("   🔄 Testing Replay Question endpoint...")
+            
+            # First, get some recent questions to replay
+            recent_response = self.session.get(f"{self.base_url}/recent-questions?limit=1")
+            
+            if recent_response.status_code == 200:
+                recent_data = recent_response.json()
+                recent_questions = recent_data.get("recent_questions", [])
+                
+                if recent_questions:
+                    # Use the first recent question for replay
+                    original_question = recent_questions[0]
+                    session_id = original_question.get("session_id")
+                    question_text = original_question.get("question")
+                    
+                    print(f"   Replaying question: '{question_text[:50]}...' from session {session_id}")
+                    
+                    # Test replay functionality
+                    replay_request = {
+                        "session_id": session_id,
+                        "question": question_text
+                    }
+                    
+                    replay_response = self.session.post(
+                        f"{self.base_url}/replay-question",
+                        json=replay_request
+                    )
+                    
+                    if replay_response.status_code == 200:
+                        replay_data = replay_response.json()
+                        
+                        # Check required fields in replay response
+                        required_fields = ["message", "original_session_id", "new_session_id", "result"]
+                        missing_fields = [field for field in required_fields if field not in replay_data]
+                        
+                        if not missing_fields:
+                            original_session_id = replay_data.get("original_session_id")
+                            new_session_id = replay_data.get("new_session_id")
+                            result = replay_data.get("result", {})
+                            
+                            # Verify new session was created
+                            if new_session_id != original_session_id and result:
+                                # Check if result has expected structure
+                                result_fields = ["question", "answer", "session_id", "context_found"]
+                                missing_result_fields = [field for field in result_fields if field not in result]
+                                
+                                if not missing_result_fields:
+                                    self.log_test(
+                                        "Question History - POST /api/replay-question",
+                                        True,
+                                        f"✅ Question replay working perfectly. Original session: {original_session_id}, New session: {new_session_id}, Question re-executed successfully",
+                                        {
+                                            "original_session_id": original_session_id,
+                                            "new_session_id": new_session_id,
+                                            "question": question_text[:100],
+                                            "context_found": result.get("context_found", False)
+                                        }
+                                    )
+                                else:
+                                    self.log_test(
+                                        "Question History - POST /api/replay-question",
+                                        False,
+                                        f"❌ Replay result missing required fields: {missing_result_fields}",
+                                        replay_data
+                                    )
+                            else:
+                                self.log_test(
+                                    "Question History - POST /api/replay-question",
+                                    False,
+                                    f"❌ New session not created properly. Original: {original_session_id}, New: {new_session_id}",
+                                    replay_data
+                                )
+                        else:
+                            self.log_test(
+                                "Question History - POST /api/replay-question",
+                                False,
+                                f"❌ Replay response missing required fields: {missing_fields}",
+                                replay_data
+                            )
+                    else:
+                        self.log_test(
+                            "Question History - POST /api/replay-question",
+                            False,
+                            f"❌ Replay request failed: HTTP {replay_response.status_code}",
+                            replay_response.text
+                        )
+                else:
+                    # Test with manual question data if no recent questions exist
+                    self.test_replay_question_manual()
+                    
+            else:
+                self.log_test(
+                    "Question History - POST /api/replay-question",
+                    False,
+                    f"❌ Could not get recent questions for replay test: HTTP {recent_response.status_code}",
+                    recent_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - POST /api/replay-question",
+                False,
+                f"❌ Connection error during replay question test: {str(e)}",
+                None
+            )
+
+    def test_replay_question_manual(self):
+        """Test replay question with manual data"""
+        try:
+            # Test with manual question data
+            manual_replay_request = {
+                "session_id": "test_session_manual",
+                "question": "What are the main corporate procedures?"
+            }
+            
+            replay_response = self.session.post(
+                f"{self.base_url}/replay-question",
+                json=manual_replay_request
+            )
+            
+            if replay_response.status_code == 200:
+                replay_data = replay_response.json()
+                
+                if "new_session_id" in replay_data and "result" in replay_data:
+                    self.log_test(
+                        "Question History - Replay Question Manual",
+                        True,
+                        f"✅ Manual replay working. New session created: {replay_data.get('new_session_id')}",
+                        {"new_session_id": replay_data.get("new_session_id")}
+                    )
+                else:
+                    self.log_test(
+                        "Question History - Replay Question Manual",
+                        False,
+                        f"❌ Manual replay response structure invalid",
+                        replay_data
+                    )
+            else:
+                self.log_test(
+                    "Question History - Replay Question Manual",
+                    False,
+                    f"❌ Manual replay failed: HTTP {replay_response.status_code}",
+                    replay_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - Replay Question Manual",
+                False,
+                f"❌ Error during manual replay test: {str(e)}",
+                None
+            )
+
+    def test_question_history_integration(self):
+        """🆕 NEW FEATURE: Test Question History Integration - Full workflow"""
+        try:
+            print("   🔗 Testing Question History Integration - Full workflow...")
+            
+            # Step 1: Ask a few questions to create chat history
+            print("   Step 1: Creating chat history with test questions...")
+            
+            test_questions = [
+                "What are the main corporate procedures?",
+                "Tell me about document management",
+                "How does the quality control process work?"
+            ]
+            
+            created_sessions = []
+            
+            for i, question in enumerate(test_questions, 1):
+                session_id = f"integration_test_session_{int(time.time())}_{i}"
+                
+                question_request = {
+                    "question": question,
+                    "session_id": session_id
+                }
+                
+                response = self.session.post(
+                    f"{self.base_url}/ask-question",
+                    json=question_request
+                )
+                
+                if response.status_code == 200:
+                    created_sessions.append({
+                        "session_id": session_id,
+                        "question": question,
+                        "response": response.json()
+                    })
+                    print(f"   ✅ Question {i} asked successfully")
+                else:
+                    print(f"   ⚠️ Question {i} failed: HTTP {response.status_code}")
+            
+            if created_sessions:
+                # Step 2: List chat sessions
+                print("   Step 2: Testing chat sessions listing...")
+                
+                sessions_response = self.session.get(f"{self.base_url}/chat-sessions")
+                
+                if sessions_response.status_code == 200:
+                    sessions_data = sessions_response.json()
+                    sessions = sessions_data.get("sessions", [])
+                    
+                    # Check if our created sessions appear in the list
+                    found_sessions = 0
+                    for created_session in created_sessions:
+                        for session in sessions:
+                            if session.get("session_id") == created_session["session_id"]:
+                                found_sessions += 1
+                                break
+                    
+                    sessions_test_success = found_sessions >= len(created_sessions) * 0.5  # At least 50% found
+                    
+                    print(f"   Sessions listing: {found_sessions}/{len(created_sessions)} sessions found")
+                    
+                    # Step 3: Get recent questions
+                    print("   Step 3: Testing recent questions...")
+                    
+                    recent_response = self.session.get(f"{self.base_url}/recent-questions")
+                    
+                    if recent_response.status_code == 200:
+                        recent_data = recent_response.json()
+                        recent_questions = recent_data.get("recent_questions", [])
+                        
+                        # Check if our questions appear in recent questions
+                        found_questions = 0
+                        for created_session in created_sessions:
+                            for recent_q in recent_questions:
+                                if recent_q.get("question") == created_session["question"]:
+                                    found_questions += 1
+                                    break
+                        
+                        recent_test_success = found_questions >= len(created_sessions) * 0.5  # At least 50% found
+                        
+                        print(f"   Recent questions: {found_questions}/{len(created_sessions)} questions found")
+                        
+                        # Step 4: Replay one of the questions
+                        print("   Step 4: Testing question replay...")
+                        
+                        if created_sessions:
+                            replay_session = created_sessions[0]
+                            
+                            replay_request = {
+                                "session_id": replay_session["session_id"],
+                                "question": replay_session["question"]
+                            }
+                            
+                            replay_response = self.session.post(
+                                f"{self.base_url}/replay-question",
+                                json=replay_request
+                            )
+                            
+                            if replay_response.status_code == 200:
+                                replay_data = replay_response.json()
+                                new_session_id = replay_data.get("new_session_id")
+                                
+                                replay_test_success = new_session_id and new_session_id != replay_session["session_id"]
+                                
+                                print(f"   Question replay: {'✅ Success' if replay_test_success else '❌ Failed'}")
+                                
+                                # Overall integration test evaluation
+                                overall_success = sessions_test_success and recent_test_success and replay_test_success
+                                
+                                self.log_test(
+                                    "Question History - Integration Test",
+                                    overall_success,
+                                    f"{'✅ INTEGRATION TEST PASSED' if overall_success else '❌ INTEGRATION TEST FAILED'}! Created {len(created_sessions)} sessions, Found sessions: {found_sessions}, Found questions: {found_questions}, Replay: {'Success' if replay_test_success else 'Failed'}",
+                                    {
+                                        "created_sessions": len(created_sessions),
+                                        "found_sessions": found_sessions,
+                                        "found_questions": found_questions,
+                                        "replay_success": replay_test_success,
+                                        "overall_success": overall_success
+                                    }
+                                )
+                            else:
+                                self.log_test(
+                                    "Question History - Integration Test",
+                                    False,
+                                    f"❌ Integration test failed at replay step: HTTP {replay_response.status_code}",
+                                    replay_response.text
+                                )
+                        else:
+                            self.log_test(
+                                "Question History - Integration Test",
+                                False,
+                                f"❌ Integration test failed: No sessions created for replay testing",
+                                None
+                            )
+                    else:
+                        self.log_test(
+                            "Question History - Integration Test",
+                            False,
+                            f"❌ Integration test failed at recent questions step: HTTP {recent_response.status_code}",
+                            recent_response.text
+                        )
+                else:
+                    self.log_test(
+                        "Question History - Integration Test",
+                        False,
+                        f"❌ Integration test failed at sessions listing step: HTTP {sessions_response.status_code}",
+                        sessions_response.text
+                    )
+            else:
+                self.log_test(
+                    "Question History - Integration Test",
+                    False,
+                    f"❌ Integration test failed: Could not create any test sessions",
+                    None
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Question History - Integration Test",
+                False,
+                f"❌ Connection error during integration test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests focusing on Source Documents and Links Integration"""
         print("=" * 80)
