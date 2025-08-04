@@ -801,6 +801,118 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
               </div>
             </div>
           </div>
+        ) : activeTab === 'history' ? (
+          /* History Tab */
+          <div className="space-y-6">
+            {/* Soru Geçmişi Header */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">📜 Soru Geçmişi</h2>
+                <button
+                  onClick={fetchChatSessions}
+                  disabled={loadingHistory}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                >
+                  🔄 {loadingHistory ? 'Yükleniyor...' : 'Yenile'}
+                </button>
+              </div>
+
+              {/* Son Sorular Hızlı Erişim */}
+              {recentQuestions.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">⚡ Son Sorularım</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {recentQuestions.slice(0, 6).map((question, index) => (
+                      <div
+                        key={index}
+                        className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                        onClick={() => handleReplayQuestion(question.session_id, question.question)}
+                      >
+                        <p className="text-sm text-gray-900 line-clamp-2">{question.question}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(question.created_at).toLocaleDateString('tr-TR')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Sessions Listesi */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 Tüm Konuşmalarım</h3>
+              
+              {loadingHistory ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Geçmiş yükleniyor...</p>
+                </div>
+              ) : chatSessions.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">📜</span>
+                  </div>
+                  <p className="text-gray-600">Henüz soru geçmişiniz bulunmuyor.</p>
+                  <p className="text-gray-500 text-sm mt-1">Sorular sordukça burada görünecek.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {chatSessions.map((session, index) => (
+                    <div
+                      key={session.session_id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-1">
+                            {session.latest_question}
+                          </h4>
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {session.latest_answer}...
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end space-y-2 ml-4">
+                          <span className="text-xs text-gray-500">
+                            {new Date(session.latest_created_at).toLocaleDateString('tr-TR')}
+                          </span>
+                          {session.has_sources && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                              📚 Kaynaklı
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>💬 {session.message_count} mesaj</span>
+                          {session.source_documents && session.source_documents.length > 0 && (
+                            <span>📄 {session.source_documents.length} kaynak</span>
+                          )}
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleReplayQuestion(session.session_id, session.latest_question)}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                          >
+                            🔄 Tekrar Sor
+                          </button>
+                          <button
+                            onClick={() => viewSessionHistory(session.session_id)}
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            👁️ Görüntüle
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           /* Documents Tab */
           <div className="space-y-6">
