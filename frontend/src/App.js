@@ -40,6 +40,10 @@ function App() {
     fetchDocuments();
     // Grupları al
     fetchGroups();
+    // Soru geçmişini al
+    fetchChatSessions();
+    // Son soruları al
+    fetchRecentQuestions();
   }, []);
 
   useEffect(() => {
