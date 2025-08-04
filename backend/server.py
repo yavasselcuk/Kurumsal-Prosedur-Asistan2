@@ -357,6 +357,117 @@ async def search_similar_chunks(query: str, top_k: int = 5) -> List[str]:
         logging.error(f"Benzer chunk arama hatası: {str(e)}")
         return []
 
+async def search_similar_questions(query: str, min_similarity: float = 0.6, top_k: int = 5) -> List[dict]:
+    """Geçmiş sorular arasından semantik olarak benzer olanları bul"""
+    try:
+        if not query.strip():
+            return []
+        
+        # Geçmiş soruları al (son 100 soru)
+        recent_questions = await db.chat_sessions.find(
+            {},
+            {"question": 1, "created_at": 1, "session_id": 1, "_id": 0}
+        ).sort("created_at", -1).limit(100).to_list(100)
+        
+        if not recent_questions:
+            return []
+        
+        # Query ve geçmiş sorular için embedding oluştur
+        query_embedding = embedding_model.encode([query])
+        query_embedding = query_embedding.astype('float32')
+        
+        questions_text = [q["question"] for q in recent_questions]
+        questions_embeddings = embedding_model.encode(questions_text)
+        questions_embeddings = questions_embeddings.astype('float32')
+        
+        # Normalize embeddings for cosine similarity
+        faiss.normalize_L2(query_embedding)
+        faiss.normalize_L2(questions_embeddings)
+        
+        # Cosine similarity hesapla
+        similarities = np.dot(questions_embeddings, query_embedding.T).flatten()
+        
+        # Benzer soruları filtrele ve sırala
+        similar_questions = []
+        for i, similarity in enumerate(similarities):
+            if similarity >= min_similarity and recent_questions[i]["question"].lower() != query.lower():
+                similar_questions.append({
+                    "question": recent_questions[i]["question"],
+                    "similarity": float(similarity),
+                    "session_id": recent_questions[i]["session_id"],
+                    "created_at": recent_questions[i]["created_at"]
+                })
+        
+        # Similarity'ye göre sırala ve top_k al
+        similar_questions.sort(key=lambda x: x["similarity"], reverse=True)
+        return similar_questions[:top_k]
+        
+    except Exception as e:
+        logging.error(f"Benzer soru arama hatası: {str(e)}")
+        return []
+
+async def generate_question_suggestions(partial_query: str, limit: int = 5) -> List[dict]:
+    """Kısmi sorgu için akıllı soru önerileri üret"""
+    try:
+        if len(partial_query.strip()) < 3:  # Çok kısa sorgular için öneri yapma
+            return []
+        
+        suggestions = []
+        
+        # 1. Benzer geçmiş sorular
+        similar_questions = await search_similar_questions(partial_query, min_similarity=0.4, top_k=3)
+        for sq in similar_questions:
+            suggestions.append({
+                "type": "similar",
+                "text": sq["question"],
+                "similarity": sq["similarity"],
+                "icon": "🔄"
+            })
+        
+        # 2. Kısmi metin içerikli geçmiş sorular (contains search)
+        if len(suggestions) < limit:
+            partial_matches = await db.chat_sessions.find(
+                {"question": {"$regex": partial_query, "$options": "i"}},
+                {"question": 1, "_id": 0}
+            ).limit(limit - len(suggestions)).to_list(limit - len(suggestions))
+            
+            for match in partial_matches:
+                if match["question"] not in [s["text"] for s in suggestions]:
+                    suggestions.append({
+                        "type": "partial",
+                        "text": match["question"],
+                        "similarity": 0.8,  # Fixed similarity for partial matches
+                        "icon": "💭"
+                    })
+        
+        # 3. Doküman içeriği tabanlı öneri (chunk'lar içinde arama)
+        if len(suggestions) < limit:
+            similar_chunks = await search_similar_chunks(partial_query, top_k=2)
+            if similar_chunks:
+                # Bu chunk'lara dayalı sorular üret
+                chunk_based_questions = [
+                    f"Bu konu hakkında detaylı bilgi verir misin?",
+                    f"'{partial_query}' ile ilgili prosedürler neler?",
+                    f"Bu konudaki adımları açıklar mısın?"
+                ]
+                
+                for i, question in enumerate(chunk_based_questions):
+                    if len(suggestions) < limit:
+                        suggestions.append({
+                            "type": "generated",
+                            "text": f"{partial_query.title()} {question[len(partial_query):].lower()}",
+                            "similarity": 0.7 - (i * 0.1),
+                            "icon": "💡"
+                        })
+        
+        # Similarity'ye göre sırala
+        suggestions.sort(key=lambda x: x["similarity"], reverse=True)
+        return suggestions[:limit]
+        
+    except Exception as e:
+        logging.error(f"Soru önerisi üretme hatası: {str(e)}")
+        return []
+
 async def generate_answer_with_gemini(question: str, context_chunks: List[str], session_id: str) -> tuple[str, List[str]]:
     """Gemini ile cevap üretme - kaynak dokümanlarla birlikte"""
     try:
