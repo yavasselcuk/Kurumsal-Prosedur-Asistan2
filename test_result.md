@@ -498,6 +498,7 @@ metadata:
 
 test_plan:
   current_focus:
+    - "Enhanced AI Response Formatting"
     - "DOC Processing System Test"
     - "Document Processing Pipeline Test"
     - "Enhanced Error Handling Test"
