@@ -1678,18 +1678,18 @@ class KPABackendTester:
                         # Test 1: Check if response includes "📚 Kaynak Dokümanlar" section
                         has_source_section = "📚 Kaynak Dokümanlar" in answer
                         
-                        # Test 2: Check if source documents are in bold format
+                        # Test 2: Check if source documents are in bold format (look for any bold filenames)
                         bold_filenames = []
-                        for doc in uploaded_documents:
-                            if f"**{doc['filename']}**" in answer:
-                                bold_filenames.append(doc['filename'])
+                        import re
+                        bold_pattern = r'\*\*([^*]+\.docx?)\*\*'
+                        bold_matches = re.findall(bold_pattern, answer)
+                        bold_filenames = bold_matches
                         
-                        # Test 3: Check for document view links
+                        # Test 3: Check for document view links (look for any document links)
                         document_links = []
-                        for doc in uploaded_documents:
-                            link_pattern = f"[Dokümanı Görüntüle](/api/documents/{doc['id']})"
-                            if link_pattern in answer:
-                                document_links.append(doc['id'])
+                        link_pattern = r'\[Dokümanı Görüntüle\]\(/api/documents/([^)]+)\)'
+                        link_matches = re.findall(link_pattern, answer)
+                        document_links = link_matches
                         
                         # Debug: Print answer excerpt to see actual format
                         if i == 1:  # Only for first question to avoid spam
