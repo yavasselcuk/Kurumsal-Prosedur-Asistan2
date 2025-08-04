@@ -507,6 +507,36 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                                   ul: ({children}) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                                   ol: ({children}) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
                                   li: ({children}) => <li className="text-gray-900">{children}</li>,
+                                  // Linkleri özelleştir
+                                  a: ({href, children}) => {
+                                    // API linklerini özel işle
+                                    if (href && href.startsWith('/api/documents/')) {
+                                      return (
+                                        <button
+                                          onClick={() => {
+                                            const docId = href.replace('/api/documents/', '');
+                                            handleViewDocument(docId);
+                                          }}
+                                          className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                                        >
+                                          {children}
+                                        </button>
+                                      );
+                                    }
+                                    // Normal linkler
+                                    return (
+                                      <a 
+                                        href={href} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 underline"
+                                      >
+                                        {children}
+                                      </a>
+                                    );
+                                  },
+                                  // Horizontal rule için
+                                  hr: () => <hr className="my-4 border-gray-300" />
                                 }}
                               >
                                 {message.content}
