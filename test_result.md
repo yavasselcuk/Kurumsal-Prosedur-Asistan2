@@ -510,11 +510,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Enhanced AI Response Formatting"
-    - "DOC Processing System Test"
-    - "Document Processing Pipeline Test"
-    - "Enhanced Error Handling Test"
-    - "File Upload Validation Enhanced Test"
+    - "Source Documents and Links Integration"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
