@@ -918,17 +918,6 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
     }
   };
 
-  // Doküman linkleri için handler (markdown'dan gelen linkler)
-  const handleViewDocument = (docId) => {
-    // documents listesinden dokümanı bul
-    const document = documents.find(doc => doc.id === docId);
-    if (document) {
-      openPdfModal(docId, document.filename);
-    } else {
-      alert('Doküman bulunamadı');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
