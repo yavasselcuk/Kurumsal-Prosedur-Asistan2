@@ -785,37 +785,47 @@ async def convert_docx_to_pdf(docx_content: bytes, filename: str) -> bytes:
                             parsed_content = f"DOCX parsing hatası: {str(docx_parse_error)}"
                     
                     elif file_extension == '.doc':
-                        # DOC için textract veya antiword kullan
+                        # DOC için çoklu yöntem stratejisi
+                        extracted_successfully = False
+                        
                         try:
                             # DOC dosyasını geçici olarak kaydet
                             doc_tmp_path = tmp_docx.name.replace('.docx', '.doc')
                             os.rename(tmp_docx.name, doc_tmp_path)
                             
-                            # textract ile dene
+                            # Yöntem 1: textract ile dene
                             try:
                                 import textract
+                                logging.info("Trying textract for DOC processing...")
                                 extracted_text = textract.process(doc_tmp_path)
                                 if isinstance(extracted_text, bytes):
                                     extracted_text = extracted_text.decode('utf-8', errors='ignore')
                                 
-                                # Metni paragraflara böl
-                                paragraphs = extracted_text.split('\n')
-                                for para in paragraphs:
-                                    if para.strip():
-                                        text = para.strip().replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                                        p = Paragraph(text, normal_style)
-                                        story.append(p)
-                                        story.append(Spacer(1, 6))
-                                        paragraph_count += 1
+                                if extracted_text.strip():
+                                    logging.info("Textract extraction successful")
+                                    # Metni paragraflara böl
+                                    paragraphs = extracted_text.split('\n')
+                                    for para in paragraphs:
+                                        if para.strip():
+                                            text = para.strip().replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                            p = Paragraph(text, normal_style)
+                                            story.append(p)
+                                            story.append(Spacer(1, 6))
+                                            paragraph_count += 1
+                                    extracted_successfully = True
                                         
                             except Exception as textract_error:
                                 logging.error(f"Textract error: {str(textract_error)}")
-                                # textract başarısızsa antiword dene
+                            
+                            # Yöntem 2: antiword fallback (sadece textract başarısızsa)
+                            if not extracted_successfully:
                                 try:
                                     import subprocess
+                                    logging.info("Trying antiword for DOC processing...")
                                     result = subprocess.run(['antiword', doc_tmp_path], 
                                                           capture_output=True, text=True, timeout=30)
-                                    if result.returncode == 0:
+                                    if result.returncode == 0 and result.stdout.strip():
+                                        logging.info("Antiword extraction successful")
                                         extracted_text = result.stdout
                                         paragraphs = extracted_text.split('\n')
                                         for para in paragraphs:
@@ -825,17 +835,83 @@ async def convert_docx_to_pdf(docx_content: bytes, filename: str) -> bytes:
                                                 story.append(p)
                                                 story.append(Spacer(1, 6))
                                                 paragraph_count += 1
+                                        extracted_successfully = True
                                     else:
-                                        parsed_content = f"Antiword hatası: {result.stderr}"
+                                        logging.error(f"Antiword failed: {result.stderr}")
                                 except Exception as antiword_error:
                                     logging.error(f"Antiword error: {str(antiword_error)}")
-                                    parsed_content = f"DOC parsing hatası: textract ve antiword başarısız"
+                            
+                            # Yöntem 3: Binary content analizi (son çare)
+                            if not extracted_successfully:
+                                logging.info("Trying binary content analysis...")
+                                try:
+                                    # DOC dosyasının binary içeriğini oku
+                                    with open(doc_tmp_path, 'rb') as f:
+                                        binary_content = f.read()
+                                    
+                                    # Basit text extraction - DOC files have readable text mixed with binary
+                                    # Try to extract readable ASCII/UTF-8 text
+                                    text_content = ""
+                                    for byte_chunk in [binary_content[i:i+1000] for i in range(0, len(binary_content), 1000)]:
+                                        try:
+                                            # ASCII text'i çıkarmaya çalış
+                                            chunk_text = ""
+                                            for byte in byte_chunk:
+                                                if 32 <= byte <= 126 or byte in [9, 10, 13]:  # Printable ASCII + tab/newline/carriage return
+                                                    chunk_text += chr(byte)
+                                                else:
+                                                    if chunk_text and len(chunk_text) > 2:
+                                                        text_content += chunk_text + " "
+                                                    chunk_text = ""
+                                            
+                                            if chunk_text and len(chunk_text) > 2:
+                                                text_content += chunk_text + " "
+                                                
+                                        except Exception:
+                                            continue
+                                    
+                                    # Temizle ve filtrele
+                                    if text_content.strip():
+                                        # Çok kısa kelimeler ve binary kalıntıları filtrele
+                                        words = text_content.split()
+                                        clean_words = []
+                                        for word in words:
+                                            # Türkçe karakterli veya uzun İngilizce kelimeler kabul et
+                                            if (len(word) >= 3 and 
+                                                (any(c in word.lower() for c in 'çğıöşüâîû') or  # Türkçe karakterler
+                                                 word.isalpha())):  # Sadece harf içeren kelimeler
+                                                clean_words.append(word)
+                                        
+                                        if len(clean_words) >= 10:  # En az 10 anlamlı kelime varsa
+                                            extracted_text = " ".join(clean_words)
+                                            logging.info(f"Binary extraction found {len(clean_words)} words")
+                                            
+                                            # Metni paragraflara böl (yaklaşık 100 kelimelik bloklar)
+                                            word_chunks = [clean_words[i:i+100] for i in range(0, len(clean_words), 100)]
+                                            for chunk in word_chunks:
+                                                if chunk:
+                                                    text = " ".join(chunk)
+                                                    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                                    p = Paragraph(text, normal_style)
+                                                    story.append(p)
+                                                    story.append(Spacer(1, 6))
+                                                    paragraph_count += 1
+                                            
+                                            extracted_successfully = True
+                                            
+                                except Exception as binary_error:
+                                    logging.error(f"Binary analysis error: {str(binary_error)}")
                             
                             # Geçici DOC dosyasını sil
                             try:
                                 os.unlink(doc_tmp_path)
                             except:
                                 pass
+                            
+                            # Hiçbir yöntem başarılı olmazsa
+                            if not extracted_successfully:
+                                parsed_content = ("DOC dosyası işlenemedi. Textract, antiword ve binary analiz yöntemleri başarısız oldu. "
+                                                "Doküman mevcut ancak içeriği çıkarılamadı.")
                                 
                         except Exception as doc_error:
                             logging.error(f"DOC processing error: {str(doc_error)}")
