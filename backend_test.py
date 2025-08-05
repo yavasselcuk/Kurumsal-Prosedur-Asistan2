@@ -4819,6 +4819,286 @@ class KPABackendTester:
                 None
             )
 
+    def test_pdf_viewer_bug_fix(self):
+        """🔥 CRITICAL: Test PDF Viewer Bug Fix - Enhanced Content Handling"""
+        try:
+            print("   🔥 CRITICAL TEST: PDF Viewer Bug Fix - Enhanced Content Handling")
+            print("   📋 Testing: Original problematic document, enhanced content handling, error recovery")
+            
+            # First, check if we have any documents to test with
+            docs_response = self.session.get(f"{self.base_url}/documents")
+            
+            if docs_response.status_code == 200:
+                docs_data = docs_response.json()
+                documents = docs_data.get("documents", [])
+                
+                if documents:
+                    # Test 1: Test with existing documents (including the problematic one if available)
+                    print("   Step 1: Testing PDF conversion with existing documents...")
+                    
+                    # Look for the specific problematic document mentioned in the bug report
+                    problematic_doc = None
+                    for doc in documents:
+                        if "IKY-P03-00 Personel Proseduru" in doc.get("filename", ""):
+                            problematic_doc = doc
+                            break
+                    
+                    # If we don't find the specific document, use the first available document
+                    test_doc = problematic_doc or documents[0]
+                    doc_id = test_doc["id"]
+                    filename = test_doc.get("filename", "Unknown")
+                    
+                    print(f"   Testing PDF conversion for: {filename} (ID: {doc_id})")
+                    
+                    # Test 2: Test PDF serving endpoint
+                    pdf_response = self.session.get(f"{self.base_url}/documents/{doc_id}/pdf")
+                    
+                    if pdf_response.status_code == 200:
+                        # Check response headers
+                        content_type = pdf_response.headers.get('Content-Type', '')
+                        content_disposition = pdf_response.headers.get('Content-Disposition', '')
+                        x_pdf_pages = pdf_response.headers.get('X-PDF-Pages', '')
+                        x_original_filename = pdf_response.headers.get('X-Original-Filename', '')
+                        x_error = pdf_response.headers.get('X-Error', '')
+                        
+                        # Check if content is actually PDF
+                        pdf_content = pdf_response.content
+                        is_valid_pdf = pdf_content.startswith(b'%PDF')
+                        
+                        # Check for the specific error mentioned in the bug report
+                        error_found = b'/tmp/tmpjehpblnz.docx' in pdf_content or 'Package not found' in pdf_response.text
+                        
+                        if is_valid_pdf and not error_found:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - PDF Serving",
+                                True,
+                                f"✅ PDF serving working correctly! Document '{filename}' converted to PDF successfully. Content-Type: {content_type}, Size: {len(pdf_content)} bytes, Headers: X-PDF-Pages={x_pdf_pages}, X-Original-Filename={x_original_filename}",
+                                {
+                                    "document_id": doc_id,
+                                    "filename": filename,
+                                    "content_type": content_type,
+                                    "pdf_size": len(pdf_content),
+                                    "is_valid_pdf": is_valid_pdf,
+                                    "headers": {
+                                        "X-PDF-Pages": x_pdf_pages,
+                                        "X-Original-Filename": x_original_filename,
+                                        "X-Error": x_error
+                                    }
+                                }
+                            )
+                        elif error_found:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - PDF Serving",
+                                False,
+                                f"❌ ORIGINAL BUG STILL EXISTS! Found the reported error in PDF content: '/tmp/tmpjehpblnz.docx' or 'Package not found'. The bug fix did not resolve the issue.",
+                                {
+                                    "document_id": doc_id,
+                                    "filename": filename,
+                                    "error_found": True,
+                                    "content_preview": pdf_response.text[:500] if isinstance(pdf_response.content, bytes) else str(pdf_response.content)[:500]
+                                }
+                            )
+                        else:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - PDF Serving",
+                                False,
+                                f"❌ PDF conversion failed! Content is not valid PDF format. Content-Type: {content_type}, Content starts with: {pdf_content[:20]}",
+                                {
+                                    "document_id": doc_id,
+                                    "filename": filename,
+                                    "content_type": content_type,
+                                    "is_valid_pdf": is_valid_pdf,
+                                    "content_preview": pdf_content[:100]
+                                }
+                            )
+                    elif pdf_response.status_code == 404:
+                        self.log_test(
+                            "PDF Viewer Bug Fix - PDF Serving",
+                            False,
+                            f"❌ Document not found for PDF conversion: {doc_id}",
+                            {"document_id": doc_id, "status_code": 404}
+                        )
+                    else:
+                        # Check if this is an error response with proper error handling
+                        try:
+                            error_data = pdf_response.json()
+                            error_detail = error_data.get("detail", "")
+                            
+                            # Check if error handling is improved
+                            if any(keyword in error_detail.lower() for keyword in ["içerik", "dönüştürme", "pdf", "hata"]):
+                                self.log_test(
+                                    "PDF Viewer Bug Fix - Error Handling",
+                                    True,
+                                    f"✅ Enhanced error handling working! User-friendly error message: {error_detail}",
+                                    {"error_detail": error_detail, "status_code": pdf_response.status_code}
+                                )
+                            else:
+                                self.log_test(
+                                    "PDF Viewer Bug Fix - PDF Serving",
+                                    False,
+                                    f"❌ PDF conversion failed with HTTP {pdf_response.status_code}: {error_detail}",
+                                    {"status_code": pdf_response.status_code, "error": error_detail}
+                                )
+                        except:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - PDF Serving",
+                                False,
+                                f"❌ PDF conversion failed with HTTP {pdf_response.status_code}: {pdf_response.text[:200]}",
+                                {"status_code": pdf_response.status_code, "response": pdf_response.text[:200]}
+                            )
+                    
+                    # Test 3: Test PDF metadata endpoint
+                    print("   Step 2: Testing PDF metadata endpoint...")
+                    metadata_response = self.session.get(f"{self.base_url}/documents/{doc_id}/pdf/metadata")
+                    
+                    if metadata_response.status_code == 200:
+                        metadata_data = metadata_response.json()
+                        required_fields = ["page_count", "file_size", "file_size_human", "original_filename", "original_format", "document_id", "pdf_available"]
+                        missing_fields = [field for field in required_fields if field not in metadata_data]
+                        
+                        if not missing_fields:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - Metadata",
+                                True,
+                                f"✅ PDF metadata endpoint working perfectly! Page count: {metadata_data.get('page_count')}, Size: {metadata_data.get('file_size_human')}, Original format: {metadata_data.get('original_format')}, PDF available: {metadata_data.get('pdf_available')}",
+                                metadata_data
+                            )
+                        else:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - Metadata",
+                                False,
+                                f"❌ PDF metadata missing required fields: {missing_fields}",
+                                metadata_data
+                            )
+                    else:
+                        self.log_test(
+                            "PDF Viewer Bug Fix - Metadata",
+                            False,
+                            f"❌ PDF metadata endpoint failed: HTTP {metadata_response.status_code}",
+                            metadata_response.text[:200]
+                        )
+                    
+                    # Test 4: Test PDF download endpoint
+                    print("   Step 3: Testing PDF download endpoint...")
+                    download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download")
+                    
+                    if download_response.status_code == 200:
+                        download_content = download_response.content
+                        content_disposition = download_response.headers.get('Content-Disposition', '')
+                        content_type = download_response.headers.get('Content-Type', '')
+                        
+                        is_valid_pdf = download_content.startswith(b'%PDF')
+                        has_attachment_header = 'attachment' in content_disposition.lower()
+                        
+                        if is_valid_pdf and has_attachment_header:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - Download",
+                                True,
+                                f"✅ PDF download endpoint working perfectly! Content-Type: {content_type}, Content-Disposition: {content_disposition}, Size: {len(download_content)} bytes",
+                                {
+                                    "content_type": content_type,
+                                    "content_disposition": content_disposition,
+                                    "size": len(download_content),
+                                    "is_valid_pdf": is_valid_pdf
+                                }
+                            )
+                        else:
+                            self.log_test(
+                                "PDF Viewer Bug Fix - Download",
+                                False,
+                                f"❌ PDF download issues! Valid PDF: {is_valid_pdf}, Has attachment header: {has_attachment_header}",
+                                {
+                                    "content_type": content_type,
+                                    "content_disposition": content_disposition,
+                                    "is_valid_pdf": is_valid_pdf,
+                                    "has_attachment_header": has_attachment_header
+                                }
+                            )
+                    else:
+                        self.log_test(
+                            "PDF Viewer Bug Fix - Download",
+                            False,
+                            f"❌ PDF download failed: HTTP {download_response.status_code}",
+                            download_response.text[:200]
+                        )
+                    
+                    # Test 5: Test with non-existent document (error handling)
+                    print("   Step 4: Testing error handling with non-existent document...")
+                    fake_id = "non-existent-document-12345"
+                    error_response = self.session.get(f"{self.base_url}/documents/{fake_id}/pdf")
+                    
+                    if error_response.status_code == 404:
+                        self.log_test(
+                            "PDF Viewer Bug Fix - Error Handling",
+                            True,
+                            f"✅ Error handling working correctly! Returns 404 for non-existent document",
+                            {"status_code": 404}
+                        )
+                    else:
+                        self.log_test(
+                            "PDF Viewer Bug Fix - Error Handling",
+                            False,
+                            f"❌ Expected 404 for non-existent document, got {error_response.status_code}",
+                            {"status_code": error_response.status_code}
+                        )
+                    
+                    # Test 6: End-to-End workflow test
+                    print("   Step 5: Testing complete PDF workflow...")
+                    workflow_success = True
+                    workflow_steps = []
+                    
+                    # Step 1: PDF Serve
+                    pdf_serve_response = self.session.get(f"{self.base_url}/documents/{doc_id}/pdf")
+                    workflow_steps.append(f"PDF Serve: HTTP {pdf_serve_response.status_code}")
+                    if pdf_serve_response.status_code != 200:
+                        workflow_success = False
+                    
+                    # Step 2: PDF Metadata
+                    pdf_meta_response = self.session.get(f"{self.base_url}/documents/{doc_id}/pdf/metadata")
+                    workflow_steps.append(f"PDF Metadata: HTTP {pdf_meta_response.status_code}")
+                    if pdf_meta_response.status_code != 200:
+                        workflow_success = False
+                    
+                    # Step 3: PDF Download
+                    pdf_download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download")
+                    workflow_steps.append(f"PDF Download: HTTP {pdf_download_response.status_code}")
+                    if pdf_download_response.status_code != 200:
+                        workflow_success = False
+                    
+                    self.log_test(
+                        "PDF Viewer Bug Fix - End-to-End Workflow",
+                        workflow_success,
+                        f"{'✅ Complete PDF workflow working perfectly!' if workflow_success else '❌ PDF workflow has issues!'} Steps: {' → '.join(workflow_steps)}",
+                        {
+                            "workflow_success": workflow_success,
+                            "steps": workflow_steps,
+                            "document_tested": filename
+                        }
+                    )
+                    
+                else:
+                    self.log_test(
+                        "PDF Viewer Bug Fix",
+                        False,
+                        "❌ No documents available to test PDF viewer functionality. Cannot test the bug fix without documents.",
+                        {"documents_count": 0}
+                    )
+            else:
+                self.log_test(
+                    "PDF Viewer Bug Fix",
+                    False,
+                    f"❌ Could not retrieve documents list for PDF testing: HTTP {docs_response.status_code}",
+                    docs_response.text[:200]
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "PDF Viewer Bug Fix",
+                False,
+                f"❌ Critical error during PDF viewer bug fix testing: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests including NEW FAQ System feature"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
