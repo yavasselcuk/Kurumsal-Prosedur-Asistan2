@@ -517,19 +517,37 @@ function App() {
     }
   };
 
-  const handleViewDocument = async (documentId) => {
+  // Doküman linkleri için handler (markdown'dan gelen linkler)
+  const handleViewDocument = (docId) => {
+    // documents listesinden dokümanı bul
+    const document = documents.find(doc => doc.id === docId);
+    if (document) {
+      downloadOriginalDocument(docId, document.filename);
+    } else {
+      alert('Doküman bulunamadı');
+    }
+  };
+
+  // Orijinal dokümanı indir
+  const downloadOriginalDocument = async (documentId, filename) => {
     try {
-      const response = await fetch(`${backendUrl}/api/documents/${documentId}`);
+      const response = await fetch(`${backendUrl}/api/documents/${documentId}/download-original`);
+      
       if (response.ok) {
-        const doc = await response.json();
-        
-        // PDF modal ile dokümanı göster
-        openPdfModal(documentId, doc.filename);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
       } else {
-        alert('Doküman detayları alınamadı.');
+        alert('Dosya indirilemedi');
       }
     } catch (error) {
-      alert(`Detaylar alınırken hata: ${error.message}`);
+      alert(`Dosya indirme hatası: ${error.message}`);
     }
   };
 
