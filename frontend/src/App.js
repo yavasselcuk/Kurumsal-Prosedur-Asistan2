@@ -2199,6 +2199,78 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* PDF Viewer Modal */}
+      {showPdfModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-11/12 h-5/6 max-w-6xl max-h-full overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  📄 {currentPdfDocument?.filename}
+                </h3>
+                {pdfMetadata && (
+                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    <span>📃 {pdfMetadata.page_count} sayfa</span>
+                    <span>💾 {pdfMetadata.file_size_human}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                {currentPdfDocument && (
+                  <button
+                    onClick={() => downloadPdf(currentPdfDocument.id, currentPdfDocument.filename)}
+                    className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                  >
+                    📥 İndir
+                  </button>
+                )}
+                <button
+                  onClick={closePdfModal}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-hidden">
+              {loadingPdf ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">PDF yükleniyor...</p>
+                  </div>
+                </div>
+              ) : pdfError ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">❌</span>
+                    </div>
+                    <p className="text-red-600 mb-2">PDF Yükleme Hatası</p>
+                    <p className="text-gray-600 text-sm">{pdfError}</p>
+                  </div>
+                </div>
+              ) : currentPdfDocument ? (
+                <div className="h-full overflow-auto">
+                  <div className="flex justify-center p-4">
+                    <iframe
+                      src={currentPdfDocument.pdfUrl}
+                      width="100%"
+                      height="800px"
+                      title={currentPdfDocument.filename}
+                      className="border border-gray-300 rounded-lg shadow-sm"
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
