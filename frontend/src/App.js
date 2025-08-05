@@ -864,6 +864,106 @@ function App() {
     }
   };
 
+  // Doküman arama fonksiyonları
+  const performDocumentSearch = async () => {
+    if (!searchQuery.trim()) {
+      alert('Lütfen aranacak metin girin');
+      return;
+    }
+
+    setLoadingSearch(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/search-in-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          search_type: searchType,
+          case_sensitive: caseSensitive,
+          max_results: 50,
+          highlight_context: 200
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSearchResults(data.results || []);
+        setSearchStatistics(data.statistics);
+      } else {
+        alert(`Arama hatası: ${data.detail || 'Bilinmeyen hata'}`);
+        setSearchResults([]);
+        setSearchStatistics(null);
+      }
+    } catch (error) {
+      alert(`Arama hatası: ${error.message}`);
+      setSearchResults([]);
+      setSearchStatistics(null);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  const fetchSearchSuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setSearchSuggestions([]);
+      setShowSearchSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/search-suggestions?q=${encodeURIComponent(query)}&limit=5`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSearchSuggestions(data.suggestions || []);
+        setShowSearchSuggestions(data.suggestions.length > 0);
+      } else {
+        setSearchSuggestions([]);
+        setShowSearchSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Arama önerisi alınamadı:', error);
+      setSearchSuggestions([]);
+      setShowSearchSuggestions(false);
+    }
+  };
+
+  // Debounced search suggestions
+  const debouncedFetchSearchSuggestions = React.useCallback(
+    (() => {
+      let timeoutId;
+      return (query) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          fetchSearchSuggestions(query);
+        }, 300);
+      };
+    })(),
+    []
+  );
+
+  const handleSearchQueryChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    // Arama önerilerini getir (debounced)
+    debouncedFetchSearchSuggestions(value);
+  };
+
+  const handleSearchSuggestionSelect = (suggestion) => {
+    setSearchQuery(suggestion.text);
+    setShowSearchSuggestions(false);
+    setSearchSuggestions([]);
+  };
+
+  const hideSearchSuggestions = () => {
+    setTimeout(() => {
+      setShowSearchSuggestions(false);
+    }, 150);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
