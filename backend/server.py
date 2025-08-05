@@ -1947,9 +1947,37 @@ async def serve_document_as_pdf(document_id: str):
         if not file_content:
             raise HTTPException(status_code=404, detail="Doküman içeriği bulunamadı")
         
-        # Content bytes'a çevir
-        if isinstance(file_content, str):
-            file_content = file_content.encode('utf-8')
+        # Content handling - veritabanından gelen content çeşitli formatlarda olabilir
+        try:
+            if isinstance(file_content, str):
+                # String ise base64 decode edilmiş olabilir veya binary olabilir
+                try:
+                    # Base64 decode dene
+                    file_content = base64.b64decode(file_content)
+                except:
+                    # Base64 değilse UTF-8 encode et
+                    file_content = file_content.encode('utf-8')
+            elif isinstance(file_content, dict) and 'data' in file_content:
+                # MongoDB'dan gelen binary data format
+                file_content = file_content['data']
+        except Exception as content_error:
+            logging.error(f"Content conversion error: {str(content_error)}")
+            # Content convert edilemezse hata PDF'i oluştur
+            error_msg = f"Doküman içeriği işlenemiyor: {str(content_error)}"
+            pdf_content = create_error_pdf(filename, error_msg)
+            
+            response = Response(
+                content=pdf_content,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"inline; filename=\"{os.path.splitext(filename)[0]}_error.pdf\"",
+                    "Content-Length": str(len(pdf_content)),
+                    "X-PDF-Pages": "1",
+                    "X-Original-Filename": filename,
+                    "X-Error": "Content processing error"
+                }
+            )
+            return response
         
         # DOCX/DOC dosyalarını PDF'e çevir
         file_extension = os.path.splitext(filename.lower())[1]
