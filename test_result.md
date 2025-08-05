@@ -683,6 +683,8 @@ test_plan:
   test_priority: "high_first"
 
 agent_communication:
+    - agent: "main"
+      message: "Implemented AI Response Rating System and JWT Authentication System. Added new endpoints: /auth/login, /auth/create-user, /auth/me, /auth/users, /auth/password-reset-request, /auth/password-reset, /ratings, /ratings/stats, /ratings/low-rated. Added authentication middleware to critical endpoints. Created initial admin user (username: admin, password: admin123). Backend ready for testing."
     - agent: "testing"
       message: "Backend API testing completed successfully. All 3 requested endpoints (GET /api/, GET /api/status, GET /api/documents) are working correctly. Backend server is accessible at the provided URL. Embedding model is loaded, FAISS index is not ready (expected for empty system). Created comprehensive backend_test.py for future testing. No critical issues found."
     - agent: "testing"
