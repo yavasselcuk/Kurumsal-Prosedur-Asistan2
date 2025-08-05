@@ -3364,9 +3364,23 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
-    """Uygulama başlangıcında FAISS indeksini yükle"""
+    """Uygulama başlangıcında FAISS indeksini yükle ve admin kullanıcıyı oluştur"""
     try:
         await update_faiss_index()
+        
+        # İlk admin kullanıcıyı oluştur (eğer yoksa)
+        admin_exists = await db.users.find_one({"role": "admin"})
+        if not admin_exists:
+            admin_user = User(
+                username="admin",
+                email="admin@kpa.com",
+                full_name="System Administrator",
+                role="admin",
+                password_hash=get_password_hash("admin123")
+            )
+            await db.users.insert_one(admin_user.dict())
+            logger.info("İlk admin kullanıcı oluşturuldu: username=admin, password=admin123")
+        
         logger.info("Kurumsal Prosedür Asistanı başlatıldı")
     except Exception as e:
         logger.error(f"Başlangıç hatası: {str(e)}")
