@@ -2060,19 +2060,11 @@ function App() {
                           </button>
                           
                           <button
-                            onClick={() => handleViewDocument(doc.id)}
+                            onClick={() => downloadOriginalDocument(doc.id, doc.filename)}
                             className="p-1 text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                            title="PDF Olarak Görüntüle"
+                            title="Orijinal Dosyayı İndir"
                           >
-                            📄
-                          </button>
-                          
-                          <button
-                            onClick={() => downloadPdf(doc.id, doc.filename)}
-                            className="p-1 text-green-500 hover:bg-green-50 rounded transition-colors"
-                            title="PDF İndir"
-                          >
-                            📥
+                            📎
                           </button>
                         </div>
                       </div>
