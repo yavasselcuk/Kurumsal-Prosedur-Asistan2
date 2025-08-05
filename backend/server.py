@@ -2003,7 +2003,7 @@ async def process_document_embeddings(document_id: str):
         logging.error(f"Doküman embedding işleme hatası: {str(e)}")
 
 @api_router.post("/ask-question")
-async def ask_question(request: QuestionRequest):
+async def ask_question(request: QuestionRequest, current_user: dict = Depends(get_current_active_user)):
     """Soru sorma endpoint'i"""
     try:
         if not request.question.strip():
