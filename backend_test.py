@@ -296,6 +296,302 @@ class KPABackendTester:
                 None
             )
 
+    def test_enhanced_doc_processing_fix(self):
+        """🔥 ENHANCED DOC PROCESSING FIX: Test specific DOC file processing improvements for PDF viewer"""
+        try:
+            print("   🔥 ENHANCED DOC PROCESSING FIX TESTING...")
+            print("   📋 Testing: DOC vs DOCX handling, textract integration, antiword fallback, PDF generation")
+            
+            # Test 1: Check if the specific problematic document exists
+            print("   Step 1: Checking for existing documents...")
+            docs_response = self.session.get(f"{self.base_url}/documents")
+            
+            target_document = None
+            if docs_response.status_code == 200:
+                docs_data = docs_response.json()
+                documents = docs_data.get("documents", [])
+                
+                # Look for the specific document mentioned in the review
+                for doc in documents:
+                    if "IKY-P03-00 Personel Proseduru" in doc.get("filename", ""):
+                        target_document = doc
+                        break
+                
+                if target_document:
+                    print(f"   ✅ Found target document: {target_document['filename']}")
+                    self.log_test(
+                        "Enhanced DOC Processing - Target Document Found",
+                        True,
+                        f"Found problematic document: {target_document['filename']} (ID: {target_document['id']})",
+                        target_document
+                    )
+                else:
+                    print("   ⚠️ Target document 'IKY-P03-00 Personel Proseduru.doc' not found")
+            
+            # Test 2: Test DOC file processing capabilities
+            print("   Step 2: Testing DOC processing capabilities...")
+            
+            # Check antiword availability
+            import subprocess
+            try:
+                antiword_result = subprocess.run(['which', 'antiword'], capture_output=True, text=True, timeout=10)
+                antiword_available = antiword_result.returncode == 0
+                antiword_path = antiword_result.stdout.strip() if antiword_available else "Not found"
+                
+                if antiword_available:
+                    # Test antiword functionality
+                    version_result = subprocess.run(['antiword', '-v'], capture_output=True, text=True, timeout=10)
+                    antiword_working = version_result.returncode == 0 or "antiword" in version_result.stderr.lower()
+                    
+                    self.log_test(
+                        "Enhanced DOC Processing - Antiword Availability",
+                        antiword_working,
+                        f"Antiword available at {antiword_path} and working correctly",
+                        {"path": antiword_path, "working": antiword_working}
+                    )
+                else:
+                    self.log_test(
+                        "Enhanced DOC Processing - Antiword Availability",
+                        False,
+                        "Antiword not available - DOC processing may fail",
+                        {"available": False}
+                    )
+                    
+            except Exception as e:
+                self.log_test(
+                    "Enhanced DOC Processing - Antiword Check",
+                    False,
+                    f"Error checking antiword: {str(e)}",
+                    None
+                )
+            
+            # Check textract availability
+            try:
+                import textract
+                textract_available = True
+                
+                # Test textract with a simple file
+                test_content = b"Simple test content"
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as tmp:
+                    tmp.write(test_content)
+                    tmp.flush()
+                    
+                    try:
+                        extracted = textract.process(tmp.name)
+                        textract_working = b"test content" in extracted.lower()
+                    except Exception:
+                        textract_working = False
+                    
+                    import os
+                    os.unlink(tmp.name)
+                
+                self.log_test(
+                    "Enhanced DOC Processing - Textract Availability",
+                    textract_working,
+                    f"Textract available and working correctly",
+                    {"available": textract_available, "working": textract_working}
+                )
+                
+            except ImportError:
+                self.log_test(
+                    "Enhanced DOC Processing - Textract Availability",
+                    False,
+                    "Textract not available - fallback processing may be limited",
+                    {"available": False}
+                )
+            
+            # Test 3: Test PDF generation for existing DOC documents
+            if target_document:
+                print(f"   Step 3: Testing PDF generation for {target_document['filename']}...")
+                
+                doc_id = target_document['id']
+                
+                # Test PDF serving endpoint
+                pdf_response = self.session.get(f"{self.base_url}/documents/{doc_id}/pdf")
+                
+                if pdf_response.status_code == 200:
+                    # Check if response is actually a PDF
+                    content_type = pdf_response.headers.get('content-type', '')
+                    pdf_content = pdf_response.content
+                    
+                    is_valid_pdf = (
+                        'application/pdf' in content_type and
+                        pdf_content.startswith(b'%PDF') and
+                        len(pdf_content) > 100
+                    )
+                    
+                    if is_valid_pdf:
+                        self.log_test(
+                            "Enhanced DOC Processing - PDF Generation Success",
+                            True,
+                            f"✅ PDF generation working! Successfully converted {target_document['filename']} to PDF ({len(pdf_content)} bytes)",
+                            {
+                                "document_id": doc_id,
+                                "filename": target_document['filename'],
+                                "pdf_size": len(pdf_content),
+                                "content_type": content_type
+                            }
+                        )
+                        
+                        # Test PDF metadata endpoint
+                        metadata_response = self.session.get(f"{self.base_url}/documents/{doc_id}/pdf/metadata")
+                        
+                        if metadata_response.status_code == 200:
+                            metadata = metadata_response.json()
+                            required_fields = ["page_count", "file_size", "file_size_human", "original_filename", "original_format"]
+                            missing_fields = [field for field in required_fields if field not in metadata]
+                            
+                            if not missing_fields:
+                                self.log_test(
+                                    "Enhanced DOC Processing - PDF Metadata",
+                                    True,
+                                    f"PDF metadata working correctly: {metadata['page_count']} pages, {metadata['file_size_human']}, original format: {metadata['original_format']}",
+                                    metadata
+                                )
+                            else:
+                                self.log_test(
+                                    "Enhanced DOC Processing - PDF Metadata",
+                                    False,
+                                    f"PDF metadata missing fields: {missing_fields}",
+                                    metadata
+                                )
+                        
+                        # Test PDF download endpoint
+                        download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download")
+                        
+                        if download_response.status_code == 200:
+                            download_content = download_response.content
+                            content_disposition = download_response.headers.get('content-disposition', '')
+                            
+                            if download_content == pdf_content and 'attachment' in content_disposition:
+                                self.log_test(
+                                    "Enhanced DOC Processing - PDF Download",
+                                    True,
+                                    f"PDF download working correctly with proper attachment headers",
+                                    {"content_disposition": content_disposition}
+                                )
+                            else:
+                                self.log_test(
+                                    "Enhanced DOC Processing - PDF Download",
+                                    False,
+                                    f"PDF download issues: content match={download_content == pdf_content}, disposition={content_disposition}",
+                                    None
+                                )
+                    else:
+                        self.log_test(
+                            "Enhanced DOC Processing - PDF Generation Failed",
+                            False,
+                            f"❌ PDF generation failed! Response not a valid PDF. Content-Type: {content_type}, Size: {len(pdf_content)}, Starts with PDF header: {pdf_content[:10] if pdf_content else 'Empty'}",
+                            {
+                                "document_id": doc_id,
+                                "filename": target_document['filename'],
+                                "content_type": content_type,
+                                "response_size": len(pdf_content),
+                                "response_start": pdf_content[:50] if pdf_content else None
+                            }
+                        )
+                        
+                elif pdf_response.status_code == 404:
+                    self.log_test(
+                        "Enhanced DOC Processing - PDF Generation Not Found",
+                        False,
+                        f"❌ PDF generation returned 404 - document may not exist or PDF generation failed",
+                        {"document_id": doc_id, "status_code": 404}
+                    )
+                    
+                else:
+                    # Check if it's the specific error mentioned in the review
+                    try:
+                        error_data = pdf_response.json() if pdf_response.headers.get('content-type', '').startswith('application/json') else {"detail": pdf_response.text}
+                        error_detail = error_data.get("detail", "")
+                        
+                        if "Package not found" in error_detail and ".docx" in error_detail:
+                            self.log_test(
+                                "Enhanced DOC Processing - Specific Bug Found",
+                                False,
+                                f"❌ FOUND THE REPORTED BUG! 'Package not found at '/tmp/tmpXXXXXX.docx'' error still occurring: {error_detail}",
+                                {
+                                    "document_id": doc_id,
+                                    "filename": target_document['filename'],
+                                    "error": error_detail,
+                                    "status_code": pdf_response.status_code
+                                }
+                            )
+                        else:
+                            self.log_test(
+                                "Enhanced DOC Processing - PDF Generation Error",
+                                False,
+                                f"❌ PDF generation failed with HTTP {pdf_response.status_code}: {error_detail}",
+                                {
+                                    "document_id": doc_id,
+                                    "filename": target_document['filename'],
+                                    "error": error_detail,
+                                    "status_code": pdf_response.status_code
+                                }
+                            )
+                    except:
+                        self.log_test(
+                            "Enhanced DOC Processing - PDF Generation Error",
+                            False,
+                            f"❌ PDF generation failed with HTTP {pdf_response.status_code}: {pdf_response.text[:200]}",
+                            {
+                                "document_id": doc_id,
+                                "filename": target_document['filename'],
+                                "status_code": pdf_response.status_code
+                            }
+                        )
+            
+            # Test 4: Test with multiple document types to verify DOC vs DOCX handling
+            print("   Step 4: Testing DOC vs DOCX processing differentiation...")
+            
+            if docs_response.status_code == 200:
+                docs_data = docs_response.json()
+                documents = docs_data.get("documents", [])
+                
+                doc_files = [doc for doc in documents if doc.get("file_type") == ".doc"]
+                docx_files = [doc for doc in documents if doc.get("file_type") == ".docx"]
+                
+                print(f"   Found {len(doc_files)} .doc files and {len(docx_files)} .docx files")
+                
+                # Test PDF generation for both types
+                test_results = {"doc_success": 0, "doc_total": 0, "docx_success": 0, "docx_total": 0}
+                
+                # Test up to 3 DOC files
+                for doc in doc_files[:3]:
+                    test_results["doc_total"] += 1
+                    pdf_response = self.session.get(f"{self.base_url}/documents/{doc['id']}/pdf")
+                    if pdf_response.status_code == 200 and pdf_response.content.startswith(b'%PDF'):
+                        test_results["doc_success"] += 1
+                
+                # Test up to 3 DOCX files
+                for doc in docx_files[:3]:
+                    test_results["docx_total"] += 1
+                    pdf_response = self.session.get(f"{self.base_url}/documents/{doc['id']}/pdf")
+                    if pdf_response.status_code == 200 and pdf_response.content.startswith(b'%PDF'):
+                        test_results["docx_success"] += 1
+                
+                # Calculate success rates
+                doc_success_rate = test_results["doc_success"] / test_results["doc_total"] if test_results["doc_total"] > 0 else 0
+                docx_success_rate = test_results["docx_success"] / test_results["docx_total"] if test_results["docx_total"] > 0 else 0
+                
+                overall_success = (test_results["doc_success"] + test_results["docx_success"]) >= (test_results["doc_total"] + test_results["docx_total"]) * 0.8
+                
+                self.log_test(
+                    "Enhanced DOC Processing - Format Differentiation",
+                    overall_success,
+                    f"DOC/DOCX processing results: DOC files {test_results['doc_success']}/{test_results['doc_total']} ({doc_success_rate:.1%}), DOCX files {test_results['docx_success']}/{test_results['docx_total']} ({docx_success_rate:.1%})",
+                    test_results
+                )
+            
+        except Exception as e:
+            self.log_test(
+                "Enhanced DOC Processing Fix",
+                False,
+                f"❌ Error during enhanced DOC processing test: {str(e)}",
+                None
+            )
+
     def test_doc_processing_system(self):
         """🔥 PRIORITY: Test DOC processing system - antiword installation and textract fallback"""
         try:
