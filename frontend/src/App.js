@@ -781,6 +781,19 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
             📜 Soru Geçmişi
           </button>
           <button
+            onClick={() => {
+              setActiveTab('favorites');
+              fetchFavoriteQuestions(); // Favorileri yenile
+            }}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'favorites'
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            ⭐ Favorilerim
+          </button>
+          <button
             onClick={() => setActiveTab('documents')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'documents'
