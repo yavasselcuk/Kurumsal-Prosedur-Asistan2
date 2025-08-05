@@ -3131,7 +3131,7 @@ async def get_document_details(document_id: str):
         raise HTTPException(status_code=500, detail=f"Doküman detayları alınırken hata: {str(e)}")
 
 @api_router.delete("/documents/{document_id}")
-async def delete_document(document_id: str, background_tasks: BackgroundTasks):
+async def delete_document(document_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(require_editor_or_admin)):
     """Doküman silme (gelişmiş)"""
     try:
         # Önce dokümanı bul
