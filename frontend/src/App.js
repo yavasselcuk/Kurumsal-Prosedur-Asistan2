@@ -1191,6 +1191,169 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
               )}
             </div>
           </div>
+        ) : activeTab === 'favorites' ? (
+          /* Favorites Tab */
+          <div className="space-y-6">
+            {/* Favoriler Header */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">⭐ Favori Sorularım</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={fetchFavoriteQuestions}
+                    disabled={loadingFavorites}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                  >
+                    🔄 {loadingFavorites ? 'Yükleniyor...' : 'Yenile'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Filtreler */}
+              <div className="flex flex-wrap gap-4 mb-6">
+                {/* Kategori Filtresi */}
+                <div className="flex-1 min-w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value);
+                      // Yeni filtre ile favorileri yenile
+                      setTimeout(() => fetchFavoriteQuestions(), 100);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">Tüm Kategoriler</option>
+                    {favoriteCategories.map((category, index) => (
+                      <option key={index} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Etiket Filtresi */}
+                <div className="flex-1 min-w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Etiket</label>
+                  <select
+                    value={selectedTag}
+                    onChange={(e) => {
+                      setSelectedTag(e.target.value);
+                      // Yeni filtre ile favorileri yenile
+                      setTimeout(() => fetchFavoriteQuestions(), 100);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">Tüm Etiketler</option>
+                    {favoriteTags.map((tag, index) => (
+                      <option key={index} value={tag}>{tag}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Favori Sorular Listesi */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">💝 Kayıtlı Favorilerim</h3>
+              
+              {loadingFavorites ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Favoriler yükleniyor...</p>
+                </div>
+              ) : favoriteQuestions.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">⭐</span>
+                  </div>
+                  <p className="text-gray-600">Henüz favori sorunuz bulunmuyor.</p>
+                  <p className="text-gray-500 text-sm mt-1">Beğendiğiniz cevapları favorilere ekleyerek burada kolayca erişebilirsiniz.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {favoriteQuestions.map((favorite, index) => (
+                    <div
+                      key={favorite.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-1">
+                            {favorite.question}
+                          </h4>
+                          <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                            {favorite.answer_preview}
+                          </p>
+                          
+                          {/* Etiketler ve Kategori */}
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {favorite.category && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                                📁 {favorite.category}
+                              </span>
+                            )}
+                            {favorite.tags && favorite.tags.map((tag, tagIndex) => (
+                              <span 
+                                key={tagIndex}
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
+                              >
+                                🏷️ {tag}
+                              </span>
+                            ))}
+                            {favorite.source_documents && favorite.source_documents.length > 0 && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                📚 {favorite.source_documents.length} kaynak
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end space-y-2 ml-4">
+                          <span className="text-xs text-gray-500">
+                            {new Date(favorite.created_at).toLocaleDateString('tr-TR')}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                            ⭐ {favorite.favorite_count}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Notlar */}
+                      {favorite.notes && (
+                        <div className="mb-3 p-2 bg-yellow-50 rounded border-l-4 border-yellow-200">
+                          <p className="text-sm text-gray-700">
+                            <span className="font-medium">📝 Not:</span> {favorite.notes}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          {favorite.last_accessed && (
+                            <span>👁️ Son erişim: {new Date(favorite.last_accessed).toLocaleDateString('tr-TR')}</span>
+                          )}
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => replayFavoriteQuestion(favorite.id, favorite.question)}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                          >
+                            🔄 Tekrar Sor
+                          </button>
+                          <button
+                            onClick={() => deleteFavorite(favorite.id)}
+                            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                          >
+                            🗑️ Sil
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           /* Documents Tab */
           <div className="space-y-6">
