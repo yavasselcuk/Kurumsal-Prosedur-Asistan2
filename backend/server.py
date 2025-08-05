@@ -1749,7 +1749,7 @@ async def get_groups(current_user: dict = Depends(get_current_active_user)):
         raise HTTPException(status_code=500, detail=f"Gruplar alınırken hata: {str(e)}")
 
 @api_router.post("/groups")
-async def create_group(request: GroupCreateRequest):
+async def create_group(request: GroupCreateRequest, current_user: dict = Depends(require_editor_or_admin)):
     """Yeni grup oluştur"""
     try:
         # Grup adı benzersizliği kontrolü
