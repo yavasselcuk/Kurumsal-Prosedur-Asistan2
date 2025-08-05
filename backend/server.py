@@ -1246,7 +1246,7 @@ async def get_favorites(category: Optional[str] = None, tag: Optional[str] = Non
 async def get_favorite_detail(favorite_id: str):
     """Favori sorunun detayını getir"""
     try:
-        favorite = await db.favorite_questions.find_one({"id": favorite_id})
+        favorite = await db.favorite_questions.find_one({"id": favorite_id}, {"_id": 0})
         
         if not favorite:
             raise HTTPException(status_code=404, detail="Favori soru bulunamadı")
