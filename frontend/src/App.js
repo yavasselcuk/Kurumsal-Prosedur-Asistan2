@@ -57,6 +57,8 @@ function App() {
     fetchChatSessions();
     // Son soruları al
     fetchRecentQuestions();
+    // Favori soruları al
+    fetchFavoriteQuestions();
   }, []);
 
   useEffect(() => {
