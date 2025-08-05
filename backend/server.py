@@ -1900,6 +1900,160 @@ async def delete_faq_item(faq_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"FAQ silinirken hata: {str(e)}")
 
+@api_router.get("/documents/{document_id}/pdf")
+async def serve_document_as_pdf(document_id: str):
+    """Dokümanı PDF formatında serve et"""
+    try:
+        # Dokümanı bul
+        document = await db.documents.find_one({"id": document_id})
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+        
+        filename = document.get("filename", "document")
+        file_content = document.get("content", b"")
+        
+        if not file_content:
+            raise HTTPException(status_code=404, detail="Doküman içeriği bulunamadı")
+        
+        # Content bytes'a çevir
+        if isinstance(file_content, str):
+            file_content = file_content.encode('utf-8')
+        
+        # DOCX/DOC dosyalarını PDF'e çevir
+        file_extension = os.path.splitext(filename.lower())[1]
+        
+        if file_extension in ['.docx', '.doc']:
+            # DOCX/DOC'u PDF'e çevir
+            pdf_content = await convert_docx_to_pdf(file_content, filename)
+        else:
+            # Desteklenmeyen format için hata PDF'i oluştur
+            pdf_content = create_error_pdf(filename, f"Desteklenmeyen dosya formatı: {file_extension}")
+        
+        if not pdf_content:
+            raise HTTPException(status_code=500, detail="PDF oluşturulamadı")
+        
+        # PDF metadata'sını al
+        metadata = await get_pdf_metadata(pdf_content)
+        
+        # PDF'i serve et
+        response = Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename=\"{os.path.splitext(filename)[0]}.pdf\"",
+                "Content-Length": str(len(pdf_content)),
+                "X-PDF-Pages": str(metadata.get("page_count", 1)),
+                "X-Original-Filename": filename
+            }
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF serve edilirken hata: {str(e)}")
+
+@api_router.get("/documents/{document_id}/pdf/metadata")
+async def get_document_pdf_metadata(document_id: str):
+    """Dokümanın PDF metadata bilgilerini al"""
+    try:
+        # Dokümanı bul
+        document = await db.documents.find_one({"id": document_id})
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+        
+        filename = document.get("filename", "document")
+        file_content = document.get("content", b"")
+        
+        if not file_content:
+            raise HTTPException(status_code=404, detail="Doküman içeriği bulunamadı")
+        
+        # Content bytes'a çevir
+        if isinstance(file_content, str):
+            file_content = file_content.encode('utf-8')
+        
+        # PDF'e çevir
+        file_extension = os.path.splitext(filename.lower())[1]
+        
+        if file_extension in ['.docx', '.doc']:
+            pdf_content = await convert_docx_to_pdf(file_content, filename)
+        else:
+            pdf_content = create_error_pdf(filename, f"Desteklenmeyen dosya formatı: {file_extension}")
+        
+        if not pdf_content:
+            raise HTTPException(status_code=500, detail="PDF metadata alınamadı")
+        
+        # PDF metadata'sını al
+        metadata = await get_pdf_metadata(pdf_content)
+        
+        # Ek bilgiler ekle
+        metadata.update({
+            "original_filename": filename,
+            "original_format": file_extension,
+            "document_id": document_id,
+            "pdf_available": True
+        })
+        
+        return metadata
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF metadata alınırken hata: {str(e)}")
+
+@api_router.get("/documents/{document_id}/download")
+async def download_document_pdf(document_id: str):
+    """Dokümanı PDF olarak download et"""
+    try:
+        # Dokümanı bul
+        document = await db.documents.find_one({"id": document_id})
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+        
+        filename = document.get("filename", "document")
+        file_content = document.get("content", b"")
+        
+        if not file_content:
+            raise HTTPException(status_code=404, detail="Doküman içeriği bulunamadı")
+        
+        # Content bytes'a çevir
+        if isinstance(file_content, str):
+            file_content = file_content.encode('utf-8')
+        
+        # PDF'e çevir
+        file_extension = os.path.splitext(filename.lower())[1]
+        
+        if file_extension in ['.docx', '.doc']:
+            pdf_content = await convert_docx_to_pdf(file_content, filename)
+        else:
+            pdf_content = create_error_pdf(filename, f"Desteklenmeyen dosya formatı: {file_extension}")
+        
+        if not pdf_content:
+            raise HTTPException(status_code=500, detail="PDF oluşturulamadı")
+        
+        # PDF'i download olarak serve et
+        pdf_filename = f"{os.path.splitext(filename)[0]}.pdf"
+        
+        response = Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=\"{pdf_filename}\"",
+                "Content-Length": str(len(pdf_content)),
+            }
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF download edilirken hata: {str(e)}")
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
