@@ -165,6 +165,25 @@ class FavoriteQuestionUpdateRequest(BaseModel):
     tags: List[str] = []
     notes: Optional[str] = None
 
+class FAQItem(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    question: str
+    answer: str
+    category: Optional[str] = None
+    frequency: int = 1  # Kaç kez soruldu
+    similar_questions: List[str] = []  # Benzer sorular
+    source_sessions: List[str] = []  # Bu soruyu içeren session'lar
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = True
+    manual_override: bool = False  # Manuel olarak eklendi mi?
+
+class FAQGenerateRequest(BaseModel):
+    min_frequency: int = 2  # En az kaç kez sorulmuş olmalı
+    similarity_threshold: float = 0.7  # Benzer sorular için eşik
+    max_faq_items: int = 50  # Maksimum FAQ sayısı
+    categories: List[str] = []  # Belirli kategorilerle sınırla
+
 # Helper functions
 async def extract_text_from_document(file_content: bytes, filename: str) -> str:
     """Word dokümanından metin çıkarma (.doc ve .docx desteği) - Improved"""
