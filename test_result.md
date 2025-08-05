@@ -558,7 +558,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Semantic Question Suggestions Feature"
+    - "Favorite Questions System - Complete CRUD Operations"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
