@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Güncellenmiş Kurumsal Prosedür Asistanı backend API'lerini test et: YENİ ÖZELLİKLER TESTİ: 1. Sistem Durumu Kontrolü (GET /api/status) - yeni alanları test et (supported_formats: ['.doc', '.docx'], processing_queue: 0), 2. Gelişmiş Doküman Listesi (GET /api/documents) - yeni format bilgilerini ve statistics bölümünü test et, 3. Yeni Format Desteği (.doc ve .docx desteğinin API'de aktif olduğunu doğrula), 4. Gelişmiş Silme İşlemleri (DELETE /api/documents/{id} - enhanced response test et)"
+user_problem_statement: "KPA uygulamasına yeni özellikler eklenmesi: 1. AI Cevap Kalitesi Metrikleri (1-5 yıldız rating + feedback comments + admin analytics), 2. JWT tabanlı Multi-user Authentication sistemi (session timeout 48 saat, password recovery), 3. Rol bazlı erişim kontrolü (Admin/Editor/Viewer rolleri), 4. Admin Dashboard (kullanıcı yönetimi + AI kalite raporları). Sadece admin manuel user kayıt yapabilir, açık registration yok."
 
 backend:
   - task: "Comprehensive DOC Processing with Binary Content Analysis Fallback"
