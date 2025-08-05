@@ -1855,7 +1855,7 @@ async def delete_group(group_id: str, move_documents: bool = False, current_user
         raise HTTPException(status_code=500, detail=f"Grup silinirken hata: {str(e)}")
 
 @api_router.post("/documents/move")
-async def move_documents(request: DocumentMoveRequest):
+async def move_documents(request: DocumentMoveRequest, current_user: dict = Depends(require_editor_or_admin)):
     """Dokümanları gruba taşı"""
     try:
         if request.group_id:
