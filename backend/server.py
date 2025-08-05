@@ -47,6 +47,17 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# JWT Configuration
+SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'kurumsal-prosedur-asistani-secret-key-2025')
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_HOURS = 48
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT Security
+security = HTTPBearer()
+
 # Embedding model initialization
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
