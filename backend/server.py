@@ -351,6 +351,199 @@ def get_file_size_human_readable(size_bytes: int) -> str:
         i += 1
     return f"{size_bytes:.1f} {size_names[i]}"
 
+async def search_in_documents(
+    query: str,
+    document_ids: List[str] = None,
+    group_ids: List[str] = None,
+    search_type: str = "text",
+    case_sensitive: bool = False,
+    max_results: int = 50,
+    highlight_context: int = 100
+) -> List[dict]:
+    """Dokümanlar içinde metin arama"""
+    try:
+        # Arama filtreleri oluştur
+        search_filter = {}
+        
+        if document_ids:
+            search_filter["id"] = {"$in": document_ids}
+        
+        if group_ids:
+            search_filter["group_id"] = {"$in": group_ids}
+        
+        # Dokümanları getir
+        documents = await db.documents.find(search_filter).to_list(1000)
+        
+        if not documents:
+            return []
+        
+        search_results = []
+        
+        for doc in documents:
+            doc_id = doc.get("id")
+            filename = doc.get("filename", "Unknown")
+            group_name = doc.get("group_name", "Gruplandırılmamış")
+            chunks = doc.get("chunks", [])
+            
+            # Her dokümanda arama yap
+            doc_matches = []
+            
+            for chunk_index, chunk in enumerate(chunks):
+                if not isinstance(chunk, str):
+                    continue
+                
+                # Arama tipine göre farklı pattern kullan
+                matches = perform_search_in_text(
+                    chunk, query, search_type, case_sensitive
+                )
+                
+                for match in matches:
+                    # Context oluştur (highlight_context kadar karakter)
+                    start_pos = match["start"]
+                    end_pos = match["end"]
+                    
+                    context_start = max(0, start_pos - highlight_context)
+                    context_end = min(len(chunk), end_pos + highlight_context)
+                    
+                    context = chunk[context_start:context_end]
+                    
+                    # Matched text'i highlight et
+                    relative_start = start_pos - context_start
+                    relative_end = end_pos - context_start
+                    
+                    highlighted_context = (
+                        context[:relative_start] + 
+                        "**" + context[relative_start:relative_end] + "**" + 
+                        context[relative_end:]
+                    )
+                    
+                    doc_matches.append({
+                        "chunk_index": chunk_index,
+                        "position": start_pos,
+                        "matched_text": match["matched_text"],
+                        "context": context,
+                        "highlighted_context": highlighted_context,
+                        "score": calculate_match_score(query, match["matched_text"], context)
+                    })
+            
+            if doc_matches:
+                # Matches'i score'a göre sırala
+                doc_matches.sort(key=lambda x: x["score"], reverse=True)
+                
+                # Max results'a göre limit'le
+                limited_matches = doc_matches[:max_results]
+                
+                search_results.append({
+                    "document_id": doc_id,
+                    "document_filename": filename,
+                    "document_group": group_name,
+                    "matches": limited_matches,
+                    "total_matches": len(doc_matches),
+                    "match_score": sum(m["score"] for m in limited_matches) / len(limited_matches) if limited_matches else 0
+                })
+        
+        # Sonuçları relevance score'a göre sırala
+        search_results.sort(key=lambda x: x["match_score"], reverse=True)
+        
+        return search_results[:max_results]
+        
+    except Exception as e:
+        logging.error(f"Document search error: {str(e)}")
+        return []
+
+def perform_search_in_text(text: str, query: str, search_type: str, case_sensitive: bool) -> List[dict]:
+    """Metin içinde arama gerçekleştir"""
+    import re
+    
+    matches = []
+    
+    try:
+        if search_type == "regex":
+            # Regex arama
+            flags = 0 if case_sensitive else re.IGNORECASE
+            pattern = re.compile(query, flags)
+            
+            for match in pattern.finditer(text):
+                matches.append({
+                    "start": match.start(),
+                    "end": match.end(),
+                    "matched_text": match.group()
+                })
+        
+        elif search_type == "exact":
+            # Tam eşleşme arama
+            search_text = text if case_sensitive else text.lower()
+            search_query = query if case_sensitive else query.lower()
+            
+            start_pos = 0
+            while True:
+                pos = search_text.find(search_query, start_pos)
+                if pos == -1:
+                    break
+                
+                matches.append({
+                    "start": pos,
+                    "end": pos + len(query),
+                    "matched_text": text[pos:pos + len(query)]
+                })
+                
+                start_pos = pos + 1
+        
+        else:
+            # Normal text arama (kelime kelime)
+            query_words = query.split()
+            search_text = text if case_sensitive else text.lower()
+            
+            for word in query_words:
+                search_word = word if case_sensitive else word.lower()
+                
+                # Kelime sınırları ile arama
+                pattern = r'\b' + re.escape(search_word) + r'\b'
+                flags = 0 if case_sensitive else re.IGNORECASE
+                
+                for match in re.finditer(pattern, search_text):
+                    matches.append({
+                        "start": match.start(),
+                        "end": match.end(),
+                        "matched_text": text[match.start():match.end()]
+                    })
+        
+        return matches
+        
+    except Exception as e:
+        logging.error(f"Text search error: {str(e)}")
+        return []
+
+def calculate_match_score(query: str, matched_text: str, context: str) -> float:
+    """Match kalite skorunu hesapla"""
+    try:
+        score = 0.0
+        
+        # Base score - match length vs query length
+        query_len = len(query.strip())
+        match_len = len(matched_text.strip())
+        
+        if query_len > 0:
+            score += (match_len / query_len) * 0.4
+        
+        # Exact match bonus
+        if query.lower().strip() == matched_text.lower().strip():
+            score += 0.3
+        
+        # Context relevance (more unique words in context = higher score)
+        context_words = set(context.lower().split())
+        query_words = set(query.lower().split())
+        common_words = context_words.intersection(query_words)
+        
+        if len(query_words) > 0:
+            score += (len(common_words) / len(query_words)) * 0.3
+        
+        # Normalize score to 0-1 range
+        return min(1.0, max(0.0, score))
+        
+    except Exception:
+        return 0.5  # Default medium score
+
 def validate_file_type(filename: str) -> bool:
     """Dosya tipini validate et"""
     allowed_extensions = {'.doc', '.docx'}
