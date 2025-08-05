@@ -2255,6 +2255,64 @@ async def download_document_pdf(document_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF download edilirken hata: {str(e)}")
 
+@api_router.get("/documents/{document_id}/download-original")
+async def download_original_document(document_id: str):
+    """Orijinal dokümanı (Word formatında) download et"""
+    try:
+        # Dokümanı bul
+        document = await db.documents.find_one({"id": document_id})
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Doküman bulunamadı")
+        
+        filename = document.get("filename", "document")
+        file_content = document.get("content", b"")
+        
+        if not file_content:
+            raise HTTPException(status_code=404, detail="Doküman içeriği bulunamadı")
+        
+        # Content handling - veritabanından gelen content çeşitli formatlarda olabilir
+        try:
+            if isinstance(file_content, str):
+                # String ise base64 decode edilmiş olabilir
+                try:
+                    file_content = base64.b64decode(file_content)
+                except:
+                    file_content = file_content.encode('utf-8')
+            elif isinstance(file_content, dict) and 'data' in file_content:
+                # MongoDB'dan gelen binary data format
+                file_content = file_content['data']
+        except Exception as content_error:
+            logging.error(f"Content conversion error: {str(content_error)}")
+            raise HTTPException(status_code=500, detail=f"Doküman içeriği işlenemiyor: {str(content_error)}")
+        
+        # Dosya uzantısına göre MIME type belirle
+        file_extension = os.path.splitext(filename.lower())[1]
+        
+        if file_extension == '.docx':
+            mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif file_extension == '.doc':
+            mime_type = "application/msword"
+        else:
+            mime_type = "application/octet-stream"
+        
+        # Orijinal dosyayı download olarak serve et
+        response = Response(
+            content=file_content,
+            media_type=mime_type,
+            headers={
+                "Content-Disposition": f"attachment; filename=\"{filename}\"",
+                "Content-Length": str(len(file_content)),
+            }
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Orijinal doküman download edilirken hata: {str(e)}")
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
