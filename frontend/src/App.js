@@ -901,11 +901,37 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
                           )}
                           <div className="flex justify-between items-center mt-2 text-xs opacity-70">
                             <span>{message.timestamp}</span>
-                            {message.type === 'ai' && message.contextFound && (
-                              <span className="bg-white bg-opacity-20 px-2 py-1 rounded">
-                                {message.chunksCount} kaynak kullanıldı
-                              </span>
-                            )}
+                            <div className="flex items-center space-x-2">
+                              {message.type === 'ai' && message.contextFound && (
+                                <span className="bg-white bg-opacity-20 px-2 py-1 rounded">
+                                  {message.chunksCount} kaynak kullanıldı
+                                </span>
+                              )}
+                              {message.type === 'ai' && (
+                                <button
+                                  onClick={() => {
+                                    // Önceki kullanıcı sorusunu bul
+                                    const currentIndex = chatHistory.indexOf(message);
+                                    const previousMessage = currentIndex > 0 ? chatHistory[currentIndex - 1] : null;
+                                    const originalQuestion = previousMessage && previousMessage.type === 'user' 
+                                      ? previousMessage.content 
+                                      : 'Bilinmeyen soru';
+                                    
+                                    // Mesaja ek bilgi ekle
+                                    const messageWithQuestion = {
+                                      ...message,
+                                      originalQuestion: originalQuestion
+                                    };
+                                    
+                                    addToFavorites(messageWithQuestion);
+                                  }}
+                                  className="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded transition-colors"
+                                  title="Favoriye Ekle"
+                                >
+                                  ⭐
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
