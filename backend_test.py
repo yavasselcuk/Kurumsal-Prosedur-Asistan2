@@ -2425,13 +2425,765 @@ class KPABackendTester:
                 None
             )
 
+    def test_semantic_question_suggestions(self):
+        """🆕 NEW FEATURE: Test Semantic Question Suggestions - GET /api/suggest-questions"""
+        try:
+            print("   🧠 Testing Semantic Question Suggestions Feature...")
+            print("   📋 Testing: Smart question suggestions with semantic search and similarity scoring")
+            
+            # Test scenarios for question suggestions
+            test_scenarios = [
+                {
+                    "name": "Turkish HR Query",
+                    "query": "insan kaynakları",
+                    "expected_min_suggestions": 0,  # May be empty if no data
+                    "expected_types": ["similar", "partial", "generated"]
+                },
+                {
+                    "name": "Employee Rights Query",
+                    "query": "çalışan hakları",
+                    "expected_min_suggestions": 0,
+                    "expected_types": ["similar", "partial", "generated"]
+                },
+                {
+                    "name": "Short Query",
+                    "query": "pr",
+                    "expected_min_suggestions": 0,  # Should return empty for very short queries
+                    "expected_types": []
+                },
+                {
+                    "name": "Empty Query",
+                    "query": "",
+                    "expected_min_suggestions": 0,
+                    "expected_types": []
+                },
+                {
+                    "name": "Medium Length Query",
+                    "query": "prosedür adımları nelerdir",
+                    "expected_min_suggestions": 0,
+                    "expected_types": ["similar", "partial", "generated"]
+                }
+            ]
+            
+            suggestion_test_results = []
+            
+            for scenario in test_scenarios:
+                print(f"     Testing scenario: {scenario['name']} - Query: '{scenario['query']}'")
+                
+                # Test with default limit
+                params = {"q": scenario["query"]}
+                response = self.session.get(f"{self.base_url}/suggest-questions", params=params)
+                
+                result = {
+                    "scenario": scenario["name"],
+                    "query": scenario["query"],
+                    "status_code": response.status_code,
+                    "success": False,
+                    "suggestions_count": 0,
+                    "response_structure_valid": False,
+                    "suggestion_types": [],
+                    "similarity_scores_valid": False
+                }
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        
+                        # Check response structure
+                        required_fields = ["suggestions", "query", "count"]
+                        missing_fields = [field for field in required_fields if field not in data]
+                        
+                        if not missing_fields:
+                            result["response_structure_valid"] = True
+                            result["suggestions_count"] = data.get("count", 0)
+                            suggestions = data.get("suggestions", [])
+                            
+                            # Validate suggestion structure
+                            suggestion_structure_valid = True
+                            similarity_scores_valid = True
+                            suggestion_types = []
+                            
+                            for suggestion in suggestions:
+                                required_suggestion_fields = ["type", "text", "similarity", "icon"]
+                                missing_suggestion_fields = [field for field in required_suggestion_fields if field not in suggestion]
+                                
+                                if missing_suggestion_fields:
+                                    suggestion_structure_valid = False
+                                    break
+                                
+                                # Check suggestion type
+                                suggestion_type = suggestion.get("type")
+                                if suggestion_type in ["similar", "partial", "generated"]:
+                                    suggestion_types.append(suggestion_type)
+                                
+                                # Check similarity score (should be between 0.0 and 1.0)
+                                similarity = suggestion.get("similarity")
+                                if not isinstance(similarity, (int, float)) or not (0.0 <= similarity <= 1.0):
+                                    similarity_scores_valid = False
+                            
+                            result["suggestion_types"] = list(set(suggestion_types))
+                            result["similarity_scores_valid"] = similarity_scores_valid
+                            
+                            # Determine success
+                            if (suggestion_structure_valid and 
+                                result["suggestions_count"] >= scenario["expected_min_suggestions"] and
+                                similarity_scores_valid):
+                                result["success"] = True
+                        
+                    except json.JSONDecodeError:
+                        result["error"] = "Invalid JSON response"
+                
+                suggestion_test_results.append(result)
+            
+            # Test with custom limit parameter
+            print("     Testing custom limit parameter...")
+            limit_response = self.session.get(f"{self.base_url}/suggest-questions", params={"q": "prosedür", "limit": 3})
+            limit_test_success = False
+            
+            if limit_response.status_code == 200:
+                try:
+                    limit_data = limit_response.json()
+                    suggestions_count = limit_data.get("count", 0)
+                    if suggestions_count <= 3:  # Should respect limit
+                        limit_test_success = True
+                except json.JSONDecodeError:
+                    pass
+            
+            # Evaluate overall success
+            successful_scenarios = sum(1 for result in suggestion_test_results if result["success"])
+            total_scenarios = len(test_scenarios)
+            
+            # Check if basic functionality works (structure, parameters, etc.)
+            basic_functionality_working = any(result["response_structure_valid"] for result in suggestion_test_results)
+            
+            overall_success = (basic_functionality_working and 
+                             successful_scenarios >= (total_scenarios * 0.6) and  # 60% success rate
+                             limit_test_success)
+            
+            if overall_success:
+                self.log_test(
+                    "Semantic Question Suggestions - GET /api/suggest-questions",
+                    True,
+                    f"✅ SEMANTIC SUGGESTIONS WORKING! Successfully tested {successful_scenarios}/{total_scenarios} scenarios. Response structure valid, similarity scoring working (0.0-1.0 range), suggestion types include: {set().union(*[r['suggestion_types'] for r in suggestion_test_results])}, custom limit parameter working.",
+                    {
+                        "successful_scenarios": successful_scenarios,
+                        "total_scenarios": total_scenarios,
+                        "limit_test_success": limit_test_success,
+                        "test_results": suggestion_test_results
+                    }
+                )
+            else:
+                self.log_test(
+                    "Semantic Question Suggestions - GET /api/suggest-questions",
+                    False,
+                    f"❌ SEMANTIC SUGGESTIONS ISSUES! Only {successful_scenarios}/{total_scenarios} scenarios successful. Basic functionality: {basic_functionality_working}, Limit test: {limit_test_success}",
+                    {
+                        "successful_scenarios": successful_scenarios,
+                        "total_scenarios": total_scenarios,
+                        "limit_test_success": limit_test_success,
+                        "test_results": suggestion_test_results
+                    }
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Semantic Question Suggestions - GET /api/suggest-questions",
+                False,
+                f"❌ Connection error during semantic suggestions test: {str(e)}",
+                None
+            )
+
+    def test_similar_questions_search(self):
+        """🆕 NEW FEATURE: Test Similar Questions Search - GET /api/similar-questions"""
+        try:
+            print("   🔍 Testing Similar Questions Search Feature...")
+            print("   📋 Testing: Semantic similarity search with embeddings and similarity thresholds")
+            
+            # Test scenarios for similar questions search
+            test_scenarios = [
+                {
+                    "name": "Turkish Personnel Query",
+                    "query": "personel yönetimi",
+                    "similarity": 0.6,  # Default threshold
+                    "expected_semantic_matches": ["çalışan", "insan kaynakları", "personel"]
+                },
+                {
+                    "name": "Employee vs Personnel Semantic Test",
+                    "query": "çalışan hakları",
+                    "similarity": 0.4,  # Lower threshold for more matches
+                    "expected_semantic_matches": ["personel", "işçi", "çalışan"]
+                },
+                {
+                    "name": "High Similarity Threshold",
+                    "query": "prosedür adımları",
+                    "similarity": 0.8,  # High threshold - fewer matches
+                    "expected_semantic_matches": ["adım", "prosedür", "süreç"]
+                },
+                {
+                    "name": "Short Query Test",
+                    "query": "ik",
+                    "similarity": 0.6,
+                    "expected_semantic_matches": []  # Too short, should return empty
+                },
+                {
+                    "name": "Empty Query Test",
+                    "query": "",
+                    "similarity": 0.6,
+                    "expected_semantic_matches": []  # Empty, should return empty
+                }
+            ]
+            
+            similar_questions_results = []
+            
+            for scenario in test_scenarios:
+                print(f"     Testing scenario: {scenario['name']} - Query: '{scenario['query']}', Similarity: {scenario['similarity']}")
+                
+                params = {
+                    "q": scenario["query"],
+                    "similarity": scenario["similarity"],
+                    "limit": 5
+                }
+                response = self.session.get(f"{self.base_url}/similar-questions", params=params)
+                
+                result = {
+                    "scenario": scenario["name"],
+                    "query": scenario["query"],
+                    "similarity_threshold": scenario["similarity"],
+                    "status_code": response.status_code,
+                    "success": False,
+                    "similar_questions_count": 0,
+                    "response_structure_valid": False,
+                    "similarity_scores_in_range": False,
+                    "similarity_scores_above_threshold": False
+                }
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        
+                        # Check response structure
+                        required_fields = ["similar_questions", "query", "min_similarity", "count"]
+                        missing_fields = [field for field in required_fields if field not in data]
+                        
+                        if not missing_fields:
+                            result["response_structure_valid"] = True
+                            result["similar_questions_count"] = data.get("count", 0)
+                            similar_questions = data.get("similar_questions", [])
+                            min_similarity = data.get("min_similarity", 0)
+                            
+                            # Validate similar questions structure and similarity scores
+                            similarity_scores_valid = True
+                            similarity_scores_above_threshold = True
+                            
+                            for similar_q in similar_questions:
+                                required_fields = ["question", "similarity", "session_id", "created_at"]
+                                missing_q_fields = [field for field in required_fields if field not in similar_q]
+                                
+                                if missing_q_fields:
+                                    similarity_scores_valid = False
+                                    break
+                                
+                                # Check similarity score
+                                similarity_score = similar_q.get("similarity")
+                                if not isinstance(similarity_score, (int, float)) or not (0.0 <= similarity_score <= 1.0):
+                                    similarity_scores_valid = False
+                                
+                                # Check if similarity is above threshold
+                                if similarity_score < scenario["similarity"]:
+                                    similarity_scores_above_threshold = False
+                            
+                            result["similarity_scores_in_range"] = similarity_scores_valid
+                            result["similarity_scores_above_threshold"] = similarity_scores_above_threshold
+                            
+                            # Determine success based on query length and expected behavior
+                            if len(scenario["query"].strip()) < 3:
+                                # Short/empty queries should return empty results
+                                result["success"] = (result["similar_questions_count"] == 0 and 
+                                                   result["response_structure_valid"])
+                            else:
+                                # Normal queries should have valid structure and similarity scores
+                                result["success"] = (result["response_structure_valid"] and 
+                                                   similarity_scores_valid and
+                                                   similarity_scores_above_threshold)
+                        
+                    except json.JSONDecodeError:
+                        result["error"] = "Invalid JSON response"
+                
+                similar_questions_results.append(result)
+            
+            # Test different similarity parameters
+            print("     Testing different similarity parameters...")
+            similarity_params_test = []
+            
+            for sim_threshold in [0.4, 0.6, 0.8]:
+                params = {"q": "prosedür", "similarity": sim_threshold, "limit": 3}
+                response = self.session.get(f"{self.base_url}/similar-questions", params=params)
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        count = data.get("count", 0)
+                        min_similarity = data.get("min_similarity", 0)
+                        
+                        similarity_params_test.append({
+                            "threshold": sim_threshold,
+                            "count": count,
+                            "min_similarity": min_similarity,
+                            "threshold_respected": min_similarity == sim_threshold
+                        })
+                    except json.JSONDecodeError:
+                        pass
+            
+            # Evaluate overall success
+            successful_scenarios = sum(1 for result in similar_questions_results if result["success"])
+            total_scenarios = len(test_scenarios)
+            
+            # Check if basic functionality works
+            basic_functionality_working = any(result["response_structure_valid"] for result in similar_questions_results)
+            similarity_params_working = len(similarity_params_test) >= 2  # At least 2 different thresholds worked
+            
+            overall_success = (basic_functionality_working and 
+                             successful_scenarios >= (total_scenarios * 0.6) and  # 60% success rate
+                             similarity_params_working)
+            
+            if overall_success:
+                self.log_test(
+                    "Similar Questions Search - GET /api/similar-questions",
+                    True,
+                    f"✅ SEMANTIC SIMILARITY SEARCH WORKING! Successfully tested {successful_scenarios}/{total_scenarios} scenarios. Response structure valid, similarity scoring accurate (0.0-1.0 range), similarity thresholds respected, semantic matching functional.",
+                    {
+                        "successful_scenarios": successful_scenarios,
+                        "total_scenarios": total_scenarios,
+                        "similarity_params_test": similarity_params_test,
+                        "test_results": similar_questions_results
+                    }
+                )
+            else:
+                self.log_test(
+                    "Similar Questions Search - GET /api/similar-questions",
+                    False,
+                    f"❌ SEMANTIC SIMILARITY SEARCH ISSUES! Only {successful_scenarios}/{total_scenarios} scenarios successful. Basic functionality: {basic_functionality_working}, Similarity params: {similarity_params_working}",
+                    {
+                        "successful_scenarios": successful_scenarios,
+                        "total_scenarios": total_scenarios,
+                        "similarity_params_test": similarity_params_test,
+                        "test_results": similar_questions_results
+                    }
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Similar Questions Search - GET /api/similar-questions",
+                False,
+                f"❌ Connection error during similar questions search test: {str(e)}",
+                None
+            )
+
+    def test_semantic_intelligence_accuracy(self):
+        """🧠 NEW FEATURE: Test Semantic Intelligence and Accuracy"""
+        try:
+            print("   🎯 Testing Semantic Intelligence Accuracy...")
+            print("   📋 Testing: Semantic matching accuracy and contextual relevance")
+            
+            # First, we need to create some test data by asking questions to build history
+            print("   Step 1: Creating test question history for semantic testing...")
+            
+            test_questions_for_history = [
+                "İnsan kaynakları prosedürleri nelerdir?",
+                "Personel yönetimi nasıl yapılır?",
+                "Çalışan hakları hakkında bilgi ver",
+                "İşe alım süreci adımları neler?",
+                "Performans değerlendirme nasıl yapılır?"
+            ]
+            
+            # Create test sessions
+            created_sessions = []
+            for i, question in enumerate(test_questions_for_history):
+                session_id = f"semantic_test_session_{int(time.time())}_{i}"
+                question_request = {
+                    "question": question,
+                    "session_id": session_id
+                }
+                
+                response = self.session.post(f"{self.base_url}/ask-question", json=question_request)
+                if response.status_code == 200:
+                    created_sessions.append(session_id)
+                    print(f"   ✅ Created test session: {question}")
+                else:
+                    print(f"   ⚠️ Failed to create session for: {question}")
+            
+            if len(created_sessions) >= 2:  # Need at least 2 sessions for semantic testing
+                print(f"   Step 2: Testing semantic intelligence with {len(created_sessions)} test sessions...")
+                
+                # Test semantic similarity between related concepts
+                semantic_test_cases = [
+                    {
+                        "name": "Personnel vs Employee Semantic Match",
+                        "query": "personel",
+                        "expected_matches": ["insan kaynakları", "çalışan", "personel"],
+                        "min_similarity": 0.4
+                    },
+                    {
+                        "name": "HR vs Human Resources Match",
+                        "query": "ik departmanı",
+                        "expected_matches": ["insan kaynakları", "personel"],
+                        "min_similarity": 0.3
+                    },
+                    {
+                        "name": "Process vs Procedure Match",
+                        "query": "süreç",
+                        "expected_matches": ["prosedür", "adım", "süreç"],
+                        "min_similarity": 0.3
+                    }
+                ]
+                
+                semantic_accuracy_results = []
+                
+                for test_case in semantic_test_cases:
+                    print(f"     Testing: {test_case['name']}")
+                    
+                    # Test similar questions endpoint
+                    params = {
+                        "q": test_case["query"],
+                        "similarity": test_case["min_similarity"],
+                        "limit": 10
+                    }
+                    
+                    response = self.session.get(f"{self.base_url}/similar-questions", params=params)
+                    
+                    result = {
+                        "test_case": test_case["name"],
+                        "query": test_case["query"],
+                        "success": False,
+                        "semantic_matches_found": 0,
+                        "total_results": 0,
+                        "accuracy_score": 0.0
+                    }
+                    
+                    if response.status_code == 200:
+                        try:
+                            data = response.json()
+                            similar_questions = data.get("similar_questions", [])
+                            result["total_results"] = len(similar_questions)
+                            
+                            # Check for semantic matches
+                            matches_found = 0
+                            for similar_q in similar_questions:
+                                question_text = similar_q.get("question", "").lower()
+                                for expected_match in test_case["expected_matches"]:
+                                    if expected_match.lower() in question_text:
+                                        matches_found += 1
+                                        break
+                            
+                            result["semantic_matches_found"] = matches_found
+                            
+                            # Calculate accuracy (matches found / total expected matches)
+                            if len(test_case["expected_matches"]) > 0:
+                                result["accuracy_score"] = min(matches_found / len(test_case["expected_matches"]), 1.0)
+                            
+                            # Success if we found at least some semantic matches
+                            result["success"] = matches_found > 0 or result["total_results"] == 0  # Empty results OK if no data
+                            
+                        except json.JSONDecodeError:
+                            pass
+                    
+                    semantic_accuracy_results.append(result)
+                
+                # Test suggestion intelligence
+                print("     Testing suggestion intelligence...")
+                
+                suggestion_intelligence_test = []
+                for query in ["insan", "çalış", "prosedür"]:
+                    params = {"q": query, "limit": 5}
+                    response = self.session.get(f"{self.base_url}/suggest-questions", params=params)
+                    
+                    if response.status_code == 200:
+                        try:
+                            data = response.json()
+                            suggestions = data.get("suggestions", [])
+                            
+                            # Check suggestion diversity (different types)
+                            suggestion_types = set(s.get("type") for s in suggestions)
+                            has_variety = len(suggestion_types) > 1 or len(suggestions) == 0
+                            
+                            suggestion_intelligence_test.append({
+                                "query": query,
+                                "suggestions_count": len(suggestions),
+                                "suggestion_types": list(suggestion_types),
+                                "has_variety": has_variety
+                            })
+                        except json.JSONDecodeError:
+                            pass
+                
+                # Evaluate overall semantic intelligence
+                successful_semantic_tests = sum(1 for result in semantic_accuracy_results if result["success"])
+                total_semantic_tests = len(semantic_accuracy_results)
+                
+                average_accuracy = sum(result["accuracy_score"] for result in semantic_accuracy_results) / max(total_semantic_tests, 1)
+                
+                suggestion_variety_count = sum(1 for test in suggestion_intelligence_test if test["has_variety"])
+                suggestion_variety_success = suggestion_variety_count >= len(suggestion_intelligence_test) * 0.5
+                
+                overall_intelligence_success = (successful_semantic_tests >= total_semantic_tests * 0.5 and
+                                              average_accuracy >= 0.3 and
+                                              suggestion_variety_success)
+                
+                if overall_intelligence_success:
+                    self.log_test(
+                        "Semantic Intelligence Accuracy",
+                        True,
+                        f"✅ SEMANTIC INTELLIGENCE WORKING! Semantic tests: {successful_semantic_tests}/{total_semantic_tests} successful, Average accuracy: {average_accuracy:.1%}, Suggestion variety: {suggestion_variety_count}/{len(suggestion_intelligence_test)} tests show variety. AI can distinguish between semantically similar concepts like 'personel' vs 'çalışan'.",
+                        {
+                            "semantic_test_results": semantic_accuracy_results,
+                            "suggestion_intelligence": suggestion_intelligence_test,
+                            "average_accuracy": average_accuracy,
+                            "created_test_sessions": len(created_sessions)
+                        }
+                    )
+                else:
+                    self.log_test(
+                        "Semantic Intelligence Accuracy",
+                        False,
+                        f"❌ SEMANTIC INTELLIGENCE NEEDS IMPROVEMENT! Semantic tests: {successful_semantic_tests}/{total_semantic_tests}, Average accuracy: {average_accuracy:.1%}, Suggestion variety issues detected.",
+                        {
+                            "semantic_test_results": semantic_accuracy_results,
+                            "suggestion_intelligence": suggestion_intelligence_test,
+                            "average_accuracy": average_accuracy,
+                            "created_test_sessions": len(created_sessions)
+                        }
+                    )
+                
+                # Cleanup test sessions
+                print("   Step 3: Cleaning up test sessions...")
+                for session_id in created_sessions:
+                    # Note: There's no direct delete session endpoint, so we'll leave them
+                    pass
+                    
+            else:
+                self.log_test(
+                    "Semantic Intelligence Accuracy",
+                    False,
+                    f"❌ Could not create enough test sessions for semantic testing. Created: {len(created_sessions)}, Required: 2+",
+                    {"created_sessions": len(created_sessions)}
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Semantic Intelligence Accuracy",
+                False,
+                f"❌ Connection error during semantic intelligence test: {str(e)}",
+                None
+            )
+
+    def test_performance_and_edge_cases(self):
+        """⚡ NEW FEATURE: Test Performance and Edge Cases for Semantic Features"""
+        try:
+            print("   ⚡ Testing Performance and Edge Cases...")
+            print("   📋 Testing: API performance, special characters, long queries, error handling")
+            
+            # Performance test - measure response times
+            print("     Testing API performance...")
+            
+            performance_results = []
+            test_queries = ["prosedür", "insan kaynakları", "çalışan hakları"]
+            
+            for query in test_queries:
+                # Test suggest-questions performance
+                start_time = time.time()
+                response = self.session.get(f"{self.base_url}/suggest-questions", params={"q": query, "limit": 5})
+                suggest_time = time.time() - start_time
+                
+                # Test similar-questions performance
+                start_time = time.time()
+                response2 = self.session.get(f"{self.base_url}/similar-questions", params={"q": query, "similarity": 0.6})
+                similar_time = time.time() - start_time
+                
+                performance_results.append({
+                    "query": query,
+                    "suggest_time": suggest_time,
+                    "similar_time": similar_time,
+                    "suggest_success": response.status_code == 200,
+                    "similar_success": response2.status_code == 200
+                })
+            
+            # Calculate average response times
+            avg_suggest_time = sum(r["suggest_time"] for r in performance_results) / len(performance_results)
+            avg_similar_time = sum(r["similar_time"] for r in performance_results) / len(performance_results)
+            
+            performance_acceptable = avg_suggest_time < 2.0 and avg_similar_time < 2.0  # Under 2 seconds
+            
+            # Edge cases test
+            print("     Testing edge cases...")
+            
+            edge_cases = [
+                {
+                    "name": "Special Characters",
+                    "query": "çalışan-hakları & prosedür (önemli)",
+                    "expected_behavior": "handle_gracefully"
+                },
+                {
+                    "name": "Very Long Query",
+                    "query": "Bu çok uzun bir sorgu metni olup sistem performansını test etmek için kullanılmaktadır ve normalde kullanıcıların yazmayacağı kadar uzun bir metin içermektedir" * 3,
+                    "expected_behavior": "handle_gracefully"
+                },
+                {
+                    "name": "Numbers and Mixed Content",
+                    "query": "prosedür 123 adım-2023 yılı",
+                    "expected_behavior": "handle_gracefully"
+                },
+                {
+                    "name": "Only Special Characters",
+                    "query": "!@#$%^&*()",
+                    "expected_behavior": "empty_or_error"
+                },
+                {
+                    "name": "Unicode Characters",
+                    "query": "çalışan ğüşıöç 中文 العربية",
+                    "expected_behavior": "handle_gracefully"
+                }
+            ]
+            
+            edge_case_results = []
+            
+            for edge_case in edge_cases:
+                print(f"       Testing: {edge_case['name']}")
+                
+                result = {
+                    "case": edge_case["name"],
+                    "query": edge_case["query"][:50] + "..." if len(edge_case["query"]) > 50 else edge_case["query"],
+                    "suggest_success": False,
+                    "similar_success": False,
+                    "graceful_handling": False
+                }
+                
+                # Test suggest-questions with edge case
+                try:
+                    response1 = self.session.get(f"{self.base_url}/suggest-questions", 
+                                               params={"q": edge_case["query"], "limit": 3},
+                                               timeout=5)
+                    
+                    if response1.status_code == 200:
+                        data1 = response1.json()
+                        if "suggestions" in data1 and "count" in data1:
+                            result["suggest_success"] = True
+                    elif response1.status_code == 400:  # Bad request is acceptable for some edge cases
+                        result["suggest_success"] = True  # Graceful error handling
+                        
+                except (requests.exceptions.Timeout, requests.exceptions.RequestException):
+                    pass  # Timeout or connection error
+                
+                # Test similar-questions with edge case
+                try:
+                    response2 = self.session.get(f"{self.base_url}/similar-questions", 
+                                               params={"q": edge_case["query"], "similarity": 0.6},
+                                               timeout=5)
+                    
+                    if response2.status_code == 200:
+                        data2 = response2.json()
+                        if "similar_questions" in data2 and "count" in data2:
+                            result["similar_success"] = True
+                    elif response2.status_code == 400:  # Bad request is acceptable
+                        result["similar_success"] = True  # Graceful error handling
+                        
+                except (requests.exceptions.Timeout, requests.exceptions.RequestException):
+                    pass  # Timeout or connection error
+                
+                # Determine if handling was graceful
+                if edge_case["expected_behavior"] == "handle_gracefully":
+                    result["graceful_handling"] = result["suggest_success"] and result["similar_success"]
+                elif edge_case["expected_behavior"] == "empty_or_error":
+                    result["graceful_handling"] = True  # Any response is acceptable for invalid input
+                
+                edge_case_results.append(result)
+            
+            # Test rapid requests (rate limiting/performance under load)
+            print("     Testing rapid requests...")
+            
+            rapid_request_success = True
+            rapid_request_times = []
+            
+            try:
+                for i in range(5):  # 5 rapid requests
+                    start_time = time.time()
+                    response = self.session.get(f"{self.base_url}/suggest-questions", 
+                                              params={"q": f"test{i}", "limit": 2},
+                                              timeout=3)
+                    request_time = time.time() - start_time
+                    rapid_request_times.append(request_time)
+                    
+                    if response.status_code not in [200, 400]:  # 200 OK or 400 Bad Request acceptable
+                        rapid_request_success = False
+                        break
+                        
+            except (requests.exceptions.Timeout, requests.exceptions.RequestException):
+                rapid_request_success = False
+            
+            avg_rapid_time = sum(rapid_request_times) / max(len(rapid_request_times), 1)
+            
+            # Evaluate overall performance and edge case handling
+            successful_edge_cases = sum(1 for result in edge_case_results if result["graceful_handling"])
+            total_edge_cases = len(edge_cases)
+            
+            edge_case_success_rate = successful_edge_cases / total_edge_cases
+            
+            overall_success = (performance_acceptable and 
+                             edge_case_success_rate >= 0.6 and  # 60% of edge cases handled gracefully
+                             rapid_request_success)
+            
+            if overall_success:
+                self.log_test(
+                    "Performance and Edge Cases",
+                    True,
+                    f"✅ PERFORMANCE AND EDGE CASES EXCELLENT! Average response times: suggest={avg_suggest_time:.2f}s, similar={avg_similar_time:.2f}s (both <2s). Edge cases: {successful_edge_cases}/{total_edge_cases} handled gracefully. Rapid requests: {'✅' if rapid_request_success else '❌'} (avg {avg_rapid_time:.2f}s).",
+                    {
+                        "performance_results": performance_results,
+                        "avg_suggest_time": avg_suggest_time,
+                        "avg_similar_time": avg_similar_time,
+                        "edge_case_results": edge_case_results,
+                        "edge_case_success_rate": edge_case_success_rate,
+                        "rapid_request_success": rapid_request_success,
+                        "avg_rapid_time": avg_rapid_time
+                    }
+                )
+            else:
+                issues = []
+                if not performance_acceptable:
+                    issues.append(f"slow response times (suggest={avg_suggest_time:.2f}s, similar={avg_similar_time:.2f}s)")
+                if edge_case_success_rate < 0.6:
+                    issues.append(f"poor edge case handling ({edge_case_success_rate:.1%})")
+                if not rapid_request_success:
+                    issues.append("rapid request handling issues")
+                
+                self.log_test(
+                    "Performance and Edge Cases",
+                    False,
+                    f"❌ PERFORMANCE/EDGE CASE ISSUES! Problems: {', '.join(issues)}. Edge cases: {successful_edge_cases}/{total_edge_cases} successful.",
+                    {
+                        "performance_results": performance_results,
+                        "avg_suggest_time": avg_suggest_time,
+                        "avg_similar_time": avg_similar_time,
+                        "edge_case_results": edge_case_results,
+                        "edge_case_success_rate": edge_case_success_rate,
+                        "rapid_request_success": rapid_request_success,
+                        "issues": issues
+                    }
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Performance and Edge Cases",
+                False,
+                f"❌ Connection error during performance and edge case test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
-        """Run all backend tests including Question History feature"""
+        """Run all backend tests including NEW Semantic Question Suggestions feature"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🆕 NEW FEATURE PRIORITY: Question History Backend API")
-        print("📋 Testing: Chat Sessions → Recent Questions → Replay Question → Integration")
+        print("🆕 NEW FEATURE PRIORITY: Semantic Question Suggestions")
+        print("📋 Testing: Smart Suggestions → Similar Questions → Semantic Intelligence → Performance")
         print()
         
         # Test basic connectivity first
@@ -2439,15 +3191,15 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Stopping tests.")
             return self.get_summary()
         
-        # 🆕 NEW FEATURE TEST FIRST - Question History Backend API
-        print("🆕 NEW FEATURE TEST - QUESTION HISTORY BACKEND API:")
+        # 🆕 NEW FEATURE TEST FIRST - Semantic Question Suggestions
+        print("🧠 NEW FEATURE TEST - SEMANTIC QUESTION SUGGESTIONS:")
         print("-" * 70)
         
-        # 1. Question History Feature Tests (NEW FEATURE)
-        self.test_question_history_chat_sessions()
-        self.test_recent_questions_endpoint()
-        self.test_replay_question_endpoint()
-        self.test_question_history_integration()
+        # 1. Semantic Question Suggestions Feature Tests (NEW FEATURE)
+        self.test_semantic_question_suggestions()
+        self.test_similar_questions_search()
+        self.test_semantic_intelligence_accuracy()
+        self.test_performance_and_edge_cases()
         
         print("\n📊 BASIC SYSTEM TESTS:")
         print("-" * 30)
@@ -2462,6 +3214,12 @@ class KPABackendTester:
         
         print("\n📚 EXISTING FEATURES VALIDATION:")
         print("-" * 40)
+        
+        # Question History Feature Tests (Existing Feature)
+        self.test_question_history_chat_sessions()
+        self.test_recent_questions_endpoint()
+        self.test_replay_question_endpoint()
+        self.test_question_history_integration()
         
         # 📚 Source Documents and Links Integration (Existing Feature)
         self.test_source_documents_and_links_integration()
