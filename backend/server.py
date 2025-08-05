@@ -3205,6 +3205,145 @@ async def delete_all_documents(background_tasks: BackgroundTasks, confirm: bool 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Dokümanlar silinirken hata: {str(e)}")
 
+# AI Response Rating Endpoints
+@api_router.post("/ratings")
+async def add_rating(rating_request: RatingRequest, current_user: dict = Depends(get_current_active_user)):
+    """Add rating and feedback for an AI response"""
+    try:
+        # Verify chat session exists
+        chat_session = await db.chat_sessions.find_one({"id": rating_request.chat_session_id})
+        if not chat_session:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+        
+        # Check if user already rated this session
+        existing_rating = await db.response_ratings.find_one({
+            "chat_session_id": rating_request.chat_session_id,
+            "user_id": current_user["id"]
+        })
+        
+        if existing_rating:
+            # Update existing rating
+            await db.response_ratings.update_one(
+                {"id": existing_rating["id"]},
+                {
+                    "$set": {
+                        "rating": rating_request.rating,
+                        "feedback": rating_request.feedback,
+                        "created_at": datetime.utcnow()
+                    }
+                }
+            )
+            return {"message": "Rating updated successfully", "rating_id": existing_rating["id"]}
+        else:
+            # Create new rating
+            new_rating = ResponseRating(
+                session_id=rating_request.session_id,
+                chat_session_id=rating_request.chat_session_id,
+                rating=rating_request.rating,
+                feedback=rating_request.feedback,
+                user_id=current_user["id"]
+            )
+            
+            await db.response_ratings.insert_one(new_rating.dict())
+            return {"message": "Rating added successfully", "rating_id": new_rating.id}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Rating error: {str(e)}")
+
+@api_router.get("/ratings/stats", response_model=RatingStats)
+async def get_rating_stats(current_user: dict = Depends(require_admin)):
+    """Get rating statistics (admin only)"""
+    try:
+        # Get all ratings
+        ratings = await db.response_ratings.find({}).to_list(None)
+        
+        if not ratings:
+            return RatingStats(
+                total_ratings=0,
+                average_rating=0.0,
+                rating_distribution={1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+                recent_feedback=[]
+            )
+        
+        # Calculate statistics
+        total_ratings = len(ratings)
+        total_score = sum(r["rating"] for r in ratings)
+        average_rating = total_score / total_ratings if total_ratings > 0 else 0.0
+        
+        # Rating distribution
+        rating_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        for rating in ratings:
+            rating_distribution[rating["rating"]] += 1
+        
+        # Recent feedback (last 10 with feedback)
+        recent_feedback = []
+        feedback_ratings = [r for r in ratings if r.get("feedback")]
+        feedback_ratings.sort(key=lambda x: x["created_at"], reverse=True)
+        
+        for rating in feedback_ratings[:10]:
+            # Get user info
+            user = await db.users.find_one({"id": rating["user_id"]})
+            # Get chat session info
+            chat_session = await db.chat_sessions.find_one({"id": rating["chat_session_id"]})
+            
+            recent_feedback.append({
+                "rating": rating["rating"],
+                "feedback": rating["feedback"],
+                "created_at": rating["created_at"],
+                "user_name": user["full_name"] if user else "Unknown User",
+                "question_preview": chat_session["question"][:100] + "..." if chat_session and len(chat_session["question"]) > 100 else chat_session["question"] if chat_session else "Unknown Question"
+            })
+        
+        return RatingStats(
+            total_ratings=total_ratings,
+            average_rating=round(average_rating, 2),
+            rating_distribution=rating_distribution,
+            recent_feedback=recent_feedback
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Rating stats error: {str(e)}")
+
+@api_router.get("/ratings/low-rated")
+async def get_low_rated_responses(current_user: dict = Depends(require_admin), threshold: int = 2):
+    """Get low-rated responses for analysis (admin only)"""
+    try:
+        # Get ratings below threshold
+        low_ratings = await db.response_ratings.find({"rating": {"$lte": threshold}}).to_list(None)
+        
+        low_rated_responses = []
+        for rating in low_ratings:
+            # Get chat session details
+            chat_session = await db.chat_sessions.find_one({"id": rating["chat_session_id"]})
+            if chat_session:
+                # Get user info
+                user = await db.users.find_one({"id": rating["user_id"]})
+                
+                low_rated_responses.append({
+                    "rating_id": rating["id"],
+                    "rating": rating["rating"],
+                    "feedback": rating.get("feedback"),
+                    "created_at": rating["created_at"],
+                    "user_name": user["full_name"] if user else "Unknown User",
+                    "question": chat_session["question"],
+                    "answer_preview": chat_session["answer"][:200] + "..." if len(chat_session["answer"]) > 200 else chat_session["answer"],
+                    "source_documents": chat_session["source_documents"]
+                })
+        
+        # Sort by rating (lowest first) then by date (newest first)
+        low_rated_responses.sort(key=lambda x: (x["rating"], x["created_at"]), reverse=True)
+        
+        return {
+            "low_rated_responses": low_rated_responses,
+            "total_count": len(low_rated_responses),
+            "threshold": threshold
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Low rated responses error: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
