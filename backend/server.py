@@ -452,15 +452,16 @@ async def search_in_documents(
         return []
 
 def perform_search_in_text(text: str, query: str, search_type: str, case_sensitive: bool) -> List[dict]:
-    """Metin içinde arama gerçekleştir"""
+    """Metin içinde arama gerçekleştir - Türkçe karakter desteği ile"""
     import re
+    import unicodedata
     
     matches = []
     
     try:
         if search_type == "regex":
             # Regex arama
-            flags = 0 if case_sensitive else re.IGNORECASE
+            flags = 0 if case_sensitive else re.IGNORECASE | re.UNICODE
             pattern = re.compile(query, flags)
             
             for match in pattern.finditer(text):
@@ -490,29 +491,77 @@ def perform_search_in_text(text: str, query: str, search_type: str, case_sensiti
                 start_pos = pos + 1
         
         else:
-            # Normal text arama (kelime kelime)
+            # Normal text arama (kelime kelime) - Türkçe karakter desteği ile
             query_words = query.split()
             search_text = text if case_sensitive else text.lower()
             
             for word in query_words:
                 search_word = word if case_sensitive else word.lower()
                 
-                # Kelime sınırları ile arama
-                pattern = r'\b' + re.escape(search_word) + r'\b'
-                flags = 0 if case_sensitive else re.IGNORECASE
+                # Türkçe karakterler için özel word boundary pattern
+                # \b yerine custom pattern kullan
+                turkish_word_chars = r'[a-zA-ZçğıöşüâîûÇĞIİÖŞÜÂÎÛ0-9_]'
+                non_word_chars = r'[^a-zA-ZçğıöşüâîûÇĞIİÖŞÜÂÎÛ0-9_]'
                 
-                for match in re.finditer(pattern, search_text):
-                    matches.append({
-                        "start": match.start(),
-                        "end": match.end(),
-                        "matched_text": text[match.start():match.end()]
-                    })
+                # Word boundary pattern for Turkish
+                pattern = f'(?<={non_word_chars}|^){re.escape(search_word)}(?={non_word_chars}|$)'
+                flags = 0 if case_sensitive else re.IGNORECASE | re.UNICODE
+                
+                try:
+                    for match in re.finditer(pattern, search_text):
+                        matches.append({
+                            "start": match.start(),
+                            "end": match.end(),
+                            "matched_text": text[match.start():match.end()]
+                        })
+                except re.error:
+                    # Regex hatası varsa basit text search yap
+                    logging.warning(f"Regex pattern error for word: {search_word}, falling back to simple search")
+                    start_pos = 0
+                    while True:
+                        pos = search_text.find(search_word, start_pos)
+                        if pos == -1:
+                            break
+                        
+                        # Check if it's a whole word (basic check)
+                        is_start_word = pos == 0 or not search_text[pos-1].isalnum()
+                        is_end_word = pos + len(search_word) >= len(search_text) or not search_text[pos + len(search_word)].isalnum()
+                        
+                        if is_start_word and is_end_word:
+                            matches.append({
+                                "start": pos,
+                                "end": pos + len(search_word),
+                                "matched_text": text[pos:pos + len(search_word)]
+                            })
+                        
+                        start_pos = pos + 1
         
         return matches
         
     except Exception as e:
         logging.error(f"Text search error: {str(e)}")
-        return []
+        # Fallback: simple case-insensitive find
+        try:
+            search_text = text if case_sensitive else text.lower()
+            search_query = query if case_sensitive else query.lower()
+            
+            start_pos = 0
+            while True:
+                pos = search_text.find(search_query, start_pos)
+                if pos == -1:
+                    break
+                
+                matches.append({
+                    "start": pos,
+                    "end": pos + len(query),
+                    "matched_text": text[pos:pos + len(query)]
+                })
+                
+                start_pos = pos + 1
+                
+            return matches
+        except:
+            return []
 
 def calculate_match_score(query: str, matched_text: str, context: str) -> float:
     """Match kalite skorunu hesapla"""
