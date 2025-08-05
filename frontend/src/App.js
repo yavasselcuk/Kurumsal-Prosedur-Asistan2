@@ -595,6 +595,131 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
     }, 150);
   };
 
+  // Favori sorular fonksiyonları
+  const fetchFavoriteQuestions = async () => {
+    setLoadingFavorites(true);
+    try {
+      let url = `${backendUrl}/api/favorites?limit=50`;
+      if (selectedCategory && selectedCategory !== 'all') {
+        url += `&category=${encodeURIComponent(selectedCategory)}`;
+      }
+      if (selectedTag && selectedTag !== 'all') {
+        url += `&tag=${encodeURIComponent(selectedTag)}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setFavoriteQuestions(data.favorites || []);
+        setFavoriteCategories(data.statistics?.available_categories || []);
+        setFavoriteTags(data.statistics?.available_tags || []);
+      } else {
+        console.error('Favoriler alınamadı:', data);
+      }
+    } catch (error) {
+      console.error('Favoriler alınamadı:', error);
+    } finally {
+      setLoadingFavorites(false);
+    }
+  };
+
+  const addToFavorites = async (message) => {
+    try {
+      const response = await fetch(`${backendUrl}/api/favorites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          question: message.originalQuestion || message.content,
+          answer: message.content,
+          source_documents: message.sourceDocuments || []
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        if (!data.already_exists) {
+          // Favoriler listesini yenile
+          fetchFavoriteQuestions();
+        }
+      } else {
+        alert(`Hata: ${data.detail || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      alert(`Favoriye eklenirken hata: ${error.message}`);
+    }
+  };
+
+  const replayFavoriteQuestion = async (favoriteId, question) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`${backendUrl}/api/favorites/${favoriteId}/replay`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Yeni cevabı chat geçmişine ekle
+        const userMessage = {
+          type: 'user',
+          content: question,
+          timestamp: new Date().toLocaleTimeString('tr-TR')
+        };
+
+        const aiMessage = {
+          type: 'ai',
+          content: data.result.answer,
+          contextFound: data.result.context_found,
+          chunksCount: data.result.context_chunks_count,
+          timestamp: new Date().toLocaleTimeString('tr-TR')
+        };
+
+        setChatHistory([userMessage, aiMessage]);
+        setActiveTab('chat'); // Chat tab'ına geç
+        
+        // Session'ı güncelle
+        setSessionId(data.result.session_id);
+        
+      } else {
+        alert(`Hata: ${data.detail || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      alert(`Favori soru tekrar çalıştırılırken hata: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteFavorite = async (favoriteId) => {
+    if (!window.confirm('Bu favori soruyu silmek istediğinizden emin misiniz?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/favorites/${favoriteId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        fetchFavoriteQuestions(); // Listeyi yenile
+      } else {
+        alert(`Hata: ${data.detail || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      alert(`Favori silinirken hata: ${error.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
