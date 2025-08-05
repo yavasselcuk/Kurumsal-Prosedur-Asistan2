@@ -523,21 +523,8 @@ function App() {
       if (response.ok) {
         const doc = await response.json();
         
-        // Modal veya alert ile doküman detaylarını göster
-        const details = `
-Dosya Adı: ${doc.filename}
-Format: ${doc.file_type?.toUpperCase()}
-Boyut: ${doc.file_size_human}
-Parça Sayısı: ${doc.chunk_count}
-Kullanım Sayısı: ${doc.usage_count || 0}
-Yüklenme: ${doc.created_at ? new Date(doc.created_at).toLocaleString('tr-TR') : 'Bilinmiyor'}
-Durum: ${doc.embeddings_created ? 'Hazır' : 'İşleniyor'}
-
-İçerik Önizleme:
-${doc.content_preview || 'Önizleme mevcut değil'}
-        `;
-        
-        alert(details);
+        // PDF modal ile dokümanı göster
+        openPdfModal(documentId, doc.filename);
       } else {
         alert('Doküman detayları alınamadı.');
       }
