@@ -860,6 +860,75 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
     }
   };
 
+  // PDF Viewer fonksiyonları
+  const openPdfModal = async (documentId, filename) => {
+    setLoadingPdf(true);
+    setPdfError(null);
+    setShowPdfModal(true);
+    
+    try {
+      // PDF metadata'sını al
+      const metadataResponse = await fetch(`${backendUrl}/api/documents/${documentId}/pdf/metadata`);
+      const metadata = await metadataResponse.json();
+      
+      if (metadataResponse.ok) {
+        setPdfMetadata(metadata);
+        // PDF URL'ini ayarla
+        setCurrentPdfDocument({
+          id: documentId,
+          filename: filename,
+          pdfUrl: `${backendUrl}/api/documents/${documentId}/pdf`
+        });
+      } else {
+        setPdfError(metadata.detail || 'PDF metadata alınamadı');
+      }
+    } catch (error) {
+      setPdfError(`PDF yüklenirken hata: ${error.message}`);
+    } finally {
+      setLoadingPdf(false);
+    }
+  };
+
+  const closePdfModal = () => {
+    setShowPdfModal(false);
+    setCurrentPdfDocument(null);
+    setPdfMetadata(null);
+    setPdfError(null);
+  };
+
+  const downloadPdf = async (documentId, filename) => {
+    try {
+      const response = await fetch(`${backendUrl}/api/documents/${documentId}/download`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename.replace(/\.[^/.]+$/, "")}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('PDF indirilemedi');
+      }
+    } catch (error) {
+      alert(`PDF indirme hatası: ${error.message}`);
+    }
+  };
+
+  // Doküman linkleri için handler (markdown'dan gelen linkler)
+  const handleViewDocument = (docId) => {
+    // documents listesinden dokümanı bul
+    const document = documents.find(doc => doc.id === docId);
+    if (document) {
+      openPdfModal(docId, document.filename);
+    } else {
+      alert('Doküman bulunamadı');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
