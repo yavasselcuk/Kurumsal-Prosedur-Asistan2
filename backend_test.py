@@ -4500,12 +4500,12 @@ class KPABackendTester:
             )
 
     def run_all_tests(self):
-        """Run all backend tests including NEW Semantic Question Suggestions feature"""
+        """Run all backend tests including NEW FAQ System feature"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🆕 NEW FEATURE PRIORITY: Semantic Question Suggestions")
-        print("📋 Testing: Smart Suggestions → Similar Questions → Semantic Intelligence → Performance")
+        print("🆕 NEW FEATURE PRIORITY: Frequently Asked Questions (FAQ) System")
+        print("📋 Testing: FAQ Generation → Analytics → CRUD Operations → Integration")
         print()
         
         # Test basic connectivity first
@@ -4513,15 +4513,19 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Stopping tests.")
             return self.get_summary()
         
-        # 🆕 NEW FEATURE TEST FIRST - Semantic Question Suggestions
-        print("🧠 NEW FEATURE TEST - SEMANTIC QUESTION SUGGESTIONS:")
-        print("-" * 70)
+        # 🆕 NEW FEATURE TEST FIRST - FAQ System
+        print("❓ NEW FEATURE TEST - FAQ SYSTEM:")
+        print("-" * 50)
         
-        # 1. Semantic Question Suggestions Feature Tests (NEW FEATURE)
-        self.test_semantic_question_suggestions()
-        self.test_similar_questions_search()
-        self.test_semantic_intelligence_accuracy()
-        self.test_performance_and_edge_cases()
+        # 1. FAQ System Feature Tests (NEW FEATURE)
+        self.test_faq_list_endpoint()
+        self.test_faq_generate_endpoint()
+        self.test_faq_analytics_endpoint()
+        self.test_faq_ask_endpoint()
+        self.test_faq_update_endpoint()
+        self.test_faq_delete_endpoint()
+        self.test_faq_integration_workflow()
+        self.test_faq_advanced_analytics()
         
         print("\n📊 BASIC SYSTEM TESTS:")
         print("-" * 30)
@@ -4537,6 +4541,12 @@ class KPABackendTester:
         print("\n📚 EXISTING FEATURES VALIDATION:")
         print("-" * 40)
         
+        # Semantic Question Suggestions Feature Tests (Existing Feature)
+        self.test_semantic_question_suggestions()
+        self.test_similar_questions_search()
+        self.test_semantic_intelligence_accuracy()
+        self.test_performance_and_edge_cases()
+        
         # Question History Feature Tests (Existing Feature)
         self.test_question_history_chat_sessions()
         self.test_recent_questions_endpoint()
@@ -4546,10 +4556,7 @@ class KPABackendTester:
         # 📚 Source Documents and Links Integration (Existing Feature)
         self.test_source_documents_and_links_integration()
         
-        print("\n🆕 NEW FEATURE TEST - FAVORITE QUESTIONS SYSTEM:")
-        print("-" * 55)
-        
-        # 🆕 NEW FAVORITE QUESTIONS SYSTEM TESTS
+        # 🆕 FAVORITE QUESTIONS SYSTEM TESTS (Existing Feature)
         self.test_favorite_questions_system()
         self.test_favorite_questions_edge_cases()
         
