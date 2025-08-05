@@ -6248,6 +6248,18 @@ class KPABackendTester:
         
         self.test_enhanced_doc_processing_fix()
         
+        print("\n🔍 NEW DOCUMENT SEARCH FEATURE TESTS:")
+        print("-" * 50)
+        
+        # 🆕 NEW DOCUMENT SEARCH FEATURE TESTS
+        self.test_document_search_endpoint()
+        self.test_search_suggestions_endpoint()
+        self.test_text_search_functionality()
+        self.test_exact_match_search()
+        self.test_regex_search_functionality()
+        self.test_search_result_quality()
+        self.test_document_search_integration()
+        
         print("\n📚 EXISTING FEATURES VALIDATION:")
         print("-" * 40)
         
