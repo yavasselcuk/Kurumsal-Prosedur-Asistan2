@@ -732,6 +732,123 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
     }
   };
 
+  // FAQ fonksiyonları
+  const fetchFaqItems = async () => {
+    setLoadingFaq(true);
+    try {
+      let url = `${backendUrl}/api/faq?limit=50`;
+      if (selectedFaqCategory && selectedFaqCategory !== 'all') {
+        url += `&category=${encodeURIComponent(selectedFaqCategory)}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setFaqItems(data.faq_items || []);
+        setFaqCategories(data.statistics?.available_categories || []);
+      } else {
+        console.error('FAQ alınamadı:', data);
+      }
+    } catch (error) {
+      console.error('FAQ alınamadı:', error);
+    } finally {
+      setLoadingFaq(false);
+    }
+  };
+
+  const fetchFaqAnalytics = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/faq/analytics`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setFaqAnalytics(data);
+      } else {
+        console.error('FAQ analytics alınamadı:', data);
+      }
+    } catch (error) {
+      console.error('FAQ analytics alınamadı:', error);
+    }
+  };
+
+  const generateFaq = async () => {
+    if (!window.confirm('Mevcut chat geçmişinden otomatik FAQ oluşturulsun mu? Bu işlem biraz sürebilir.')) {
+      return;
+    }
+
+    setGeneratingFaq(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/faq/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          min_frequency: 2,
+          similarity_threshold: 0.7,
+          max_faq_items: 50
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        fetchFaqItems(); // FAQ listesini yenile
+        fetchFaqAnalytics(); // Analytics'i yenile
+      } else {
+        alert(`Hata: ${data.detail || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      alert(`FAQ oluşturulurken hata: ${error.message}`);
+    } finally {
+      setGeneratingFaq(false);
+    }
+  };
+
+  const askFaqQuestion = async (faqId, question) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`${backendUrl}/api/faq/${faqId}/ask`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Yeni cevabı chat geçmişine ekle
+        const userMessage = {
+          type: 'user',
+          content: question,
+          timestamp: new Date().toLocaleTimeString('tr-TR')
+        };
+
+        const aiMessage = {
+          type: 'ai',
+          content: data.result.answer,
+          contextFound: data.result.context_found,
+          chunksCount: data.result.context_chunks_count,
+          timestamp: new Date().toLocaleTimeString('tr-TR')
+        };
+
+        setChatHistory([userMessage, aiMessage]);
+        setActiveTab('chat'); // Chat tab'ına geç
+        
+        // Session'ı güncelle
+        setSessionId(data.result.session_id);
+        
+      } else {
+        alert(`Hata: ${data.detail || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      alert(`FAQ sorusu sorulurken hata: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
