@@ -527,6 +527,180 @@ async def generate_question_suggestions(partial_query: str, limit: int = 5) -> L
         logging.error(f"Soru önerisi üretme hatası: {str(e)}")
         return []
 
+async def analyze_question_frequency():
+    """Chat geçmişindeki soruların frekans analizini yap"""
+    try:
+        # Tüm chat session'larını al
+        all_sessions = await db.chat_sessions.find(
+            {},
+            {"question": 1, "session_id": 1, "created_at": 1, "_id": 0}
+        ).to_list(1000)
+        
+        if not all_sessions:
+            return {}
+        
+        # Soruları normalize et ve frekanslarını say
+        question_frequencies = {}
+        session_mapping = {}
+        
+        for session in all_sessions:
+            question = session["question"].lower().strip()
+            
+            # Normalizasyon (noktalama işaretlerini kaldır, fazla boşlukları düzelt)
+            normalized_question = ' '.join(question.split())
+            normalized_question = normalized_question.replace('?', '').replace('.', '').replace(',', '')
+            
+            if normalized_question not in question_frequencies:
+                question_frequencies[normalized_question] = {
+                    "count": 0,
+                    "original_questions": [],
+                    "sessions": []
+                }
+            
+            question_frequencies[normalized_question]["count"] += 1
+            question_frequencies[normalized_question]["original_questions"].append(session["question"])
+            question_frequencies[normalized_question]["sessions"].append(session["session_id"])
+        
+        return question_frequencies
+        
+    except Exception as e:
+        logging.error(f"Soru frekansı analizi hatası: {str(e)}")
+        return {}
+
+async def generate_faq_from_analytics(min_frequency: int = 2, similarity_threshold: float = 0.7, max_items: int = 50):
+    """Analytics verilerinden FAQ oluştur"""
+    try:
+        # Frekans analizini al
+        frequencies = await analyze_question_frequency()
+        
+        if not frequencies:
+            return []
+        
+        # Minimum frekansı geçen soruları filtrele
+        frequent_questions = [
+            {
+                "question": q,
+                "frequency": data["count"],
+                "original_questions": data["original_questions"],
+                "sessions": data["sessions"]
+            }
+            for q, data in frequencies.items()
+            if data["count"] >= min_frequency
+        ]
+        
+        # Frekansa göre sırala
+        frequent_questions.sort(key=lambda x: x["frequency"], reverse=True)
+        
+        # En fazla max_items kadar al
+        frequent_questions = frequent_questions[:max_items]
+        
+        # Her soru için cevap bul (ilk session'dan)
+        faq_items = []
+        
+        for fq in frequent_questions:
+            # İlk session'ı bul ve cevabını al
+            first_session_id = fq["sessions"][0]
+            session_data = await db.chat_sessions.find_one({"session_id": first_session_id})
+            
+            if session_data:
+                # Benzer soruları bul (semantic similarity kullanarak)
+                similar_questions = []
+                for other_q in fq["original_questions"][:5]:  # En fazla 5 benzer soru
+                    if other_q != fq["question"] and other_q not in similar_questions:
+                        similar_questions.append(other_q)
+                
+                # Kategori belirleme (basit keyword matching)
+                category = determine_category_from_question(fq["question"])
+                
+                faq_item = {
+                    "question": fq["original_questions"][0],  # En iyi orijinal soruyu kullan
+                    "answer": session_data.get("answer", ""),
+                    "category": category,
+                    "frequency": fq["frequency"],
+                    "similar_questions": similar_questions,
+                    "source_sessions": fq["sessions"],
+                    "is_active": True,
+                    "manual_override": False
+                }
+                
+                faq_items.append(faq_item)
+        
+        return faq_items
+        
+    except Exception as e:
+        logging.error(f"FAQ oluşturma hatası: {str(e)}")
+        return []
+
+def determine_category_from_question(question: str) -> str:
+    """Sorudan kategori belirleme (keyword-based)"""
+    question_lower = question.lower()
+    
+    # Keyword mapping
+    categories = {
+        "İnsan Kaynakları": ["insan kaynakları", "personel", "çalışan", "işe alım", "maaş", "izin", "özlük"],
+        "Finans": ["finans", "muhasebe", "bütçe", "ödeme", "fatura", "harcama", "gelir"],
+        "İT": ["bilgi işlem", "sistem", "yazılım", "donanım", "network", "güvenlik", "siber"],
+        "Operasyon": ["operasyon", "süreç", "prosedür", "iş akışı", "kalite", "üretim"],
+        "Hukuk": ["hukuk", "yasal", "sözleşme", "compliance", "mevzuat", "düzenleme"],
+        "Satış": ["satış", "müşteri", "pazarlama", "teklif", "sözleşme", "gelir"],
+        "Genel": ["genel", "şirket", "kurumsal", "politika", "prosedür", "rehber"]
+    }
+    
+    for category, keywords in categories.items():
+        for keyword in keywords:
+            if keyword in question_lower:
+                return category
+    
+    return "Genel"  # Default kategori
+
+async def update_faq_database():
+    """FAQ veritabanını otomatik güncelle"""
+    try:
+        # Yeni FAQ'ları oluştur
+        new_faq_items = await generate_faq_from_analytics()
+        
+        updated_count = 0
+        new_count = 0
+        
+        for item in new_faq_items:
+            # Aynı soru zaten var mı kontrol et
+            existing = await db.faq_items.find_one({
+                "question": item["question"]
+            })
+            
+            if existing:
+                # Varsa frekansı güncelle
+                await db.faq_items.update_one(
+                    {"id": existing["id"]},
+                    {
+                        "$set": {
+                            "frequency": item["frequency"],
+                            "source_sessions": item["source_sessions"],
+                            "last_updated": datetime.utcnow()
+                        }
+                    }
+                )
+                updated_count += 1
+            else:
+                # Yoksa yeni ekle
+                faq_item = FAQItem(**item)
+                await db.faq_items.insert_one(faq_item.dict())
+                new_count += 1
+        
+        return {
+            "status": "success",
+            "updated_items": updated_count,
+            "new_items": new_count,
+            "total_processed": len(new_faq_items)
+        }
+        
+    except Exception as e:
+        logging.error(f"FAQ veritabanı güncelleme hatası: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 async def generate_answer_with_gemini(question: str, context_chunks: List[str], session_id: str) -> tuple[str, List[str]]:
     """Gemini ile cevap üretme - kaynak dokümanlarla birlikte"""
     try:
