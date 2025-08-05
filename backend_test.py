@@ -7302,13 +7302,627 @@ class KPABackendTester:
                 None
             )
 
+    def test_jwt_authentication_system(self):
+        """🔥 NEW FEATURE: Test JWT Authentication System"""
+        try:
+            print("   🔐 Testing JWT Authentication System...")
+            
+            # Test 1: Login with admin credentials
+            print("   Step 1: Testing admin login...")
+            login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            login_response = self.session.post(f"{self.base_url}/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                login_result = login_response.json()
+                required_fields = ["access_token", "token_type", "expires_in", "user_info"]
+                missing_fields = [field for field in required_fields if field not in login_result]
+                
+                if not missing_fields:
+                    # Store token for subsequent tests
+                    self.auth_token = login_result["access_token"]
+                    self.session.headers.update({"Authorization": f"Bearer {self.auth_token}"})
+                    
+                    user_info = login_result["user_info"]
+                    if user_info.get("role") == "admin" and user_info.get("username") == "admin":
+                        self.log_test(
+                            "JWT Authentication - Admin Login",
+                            True,
+                            f"✅ Admin login successful! Token received, expires in {login_result['expires_in']} seconds. User role: {user_info['role']}",
+                            {"user_info": user_info, "token_type": login_result["token_type"]}
+                        )
+                    else:
+                        self.log_test(
+                            "JWT Authentication - Admin Login",
+                            False,
+                            f"❌ Login successful but user info incorrect. Expected admin role, got: {user_info}",
+                            login_result
+                        )
+                else:
+                    self.log_test(
+                        "JWT Authentication - Admin Login",
+                        False,
+                        f"❌ Login response missing required fields: {missing_fields}",
+                        login_result
+                    )
+            else:
+                self.log_test(
+                    "JWT Authentication - Admin Login",
+                    False,
+                    f"❌ Admin login failed with HTTP {login_response.status_code}: {login_response.text}",
+                    login_response.text
+                )
+                return  # Can't continue without authentication
+            
+            # Test 2: Test /auth/me endpoint
+            print("   Step 2: Testing authenticated user info...")
+            me_response = self.session.get(f"{self.base_url}/auth/me")
+            
+            if me_response.status_code == 200:
+                me_data = me_response.json()
+                if me_data.get("username") == "admin" and me_data.get("role") == "admin":
+                    self.log_test(
+                        "JWT Authentication - User Info",
+                        True,
+                        f"✅ /auth/me endpoint working correctly. User: {me_data['username']}, Role: {me_data['role']}",
+                        me_data
+                    )
+                else:
+                    self.log_test(
+                        "JWT Authentication - User Info",
+                        False,
+                        f"❌ /auth/me returned incorrect user info: {me_data}",
+                        me_data
+                    )
+            else:
+                self.log_test(
+                    "JWT Authentication - User Info",
+                    False,
+                    f"❌ /auth/me failed with HTTP {me_response.status_code}: {me_response.text}",
+                    me_response.text
+                )
+            
+            # Test 3: Test user creation (admin only)
+            print("   Step 3: Testing user creation...")
+            new_user_data = {
+                "username": "test_editor",
+                "email": "editor@test.com",
+                "full_name": "Test Editor User",
+                "password": "testpass123",
+                "role": "editor"
+            }
+            
+            create_user_response = self.session.post(f"{self.base_url}/auth/create-user", json=new_user_data)
+            
+            if create_user_response.status_code == 201:
+                created_user = create_user_response.json()
+                if created_user.get("username") == "test_editor" and created_user.get("role") == "editor":
+                    self.log_test(
+                        "JWT Authentication - User Creation",
+                        True,
+                        f"✅ User creation successful! Created user: {created_user['username']} with role: {created_user['role']}",
+                        created_user
+                    )
+                    
+                    # Test login with new user
+                    new_user_login = {
+                        "username": "test_editor",
+                        "password": "testpass123"
+                    }
+                    
+                    new_login_response = self.session.post(f"{self.base_url}/auth/login", json=new_user_login)
+                    if new_login_response.status_code == 200:
+                        self.log_test(
+                            "JWT Authentication - New User Login",
+                            True,
+                            "✅ New user can login successfully",
+                            None
+                        )
+                    else:
+                        self.log_test(
+                            "JWT Authentication - New User Login",
+                            False,
+                            f"❌ New user cannot login: HTTP {new_login_response.status_code}",
+                            new_login_response.text
+                        )
+                else:
+                    self.log_test(
+                        "JWT Authentication - User Creation",
+                        False,
+                        f"❌ User created but with incorrect data: {created_user}",
+                        created_user
+                    )
+            else:
+                self.log_test(
+                    "JWT Authentication - User Creation",
+                    False,
+                    f"❌ User creation failed with HTTP {create_user_response.status_code}: {create_user_response.text}",
+                    create_user_response.text
+                )
+            
+            # Test 4: Test user list (admin only)
+            print("   Step 4: Testing user list...")
+            users_response = self.session.get(f"{self.base_url}/auth/users")
+            
+            if users_response.status_code == 200:
+                users_data = users_response.json()
+                if "users" in users_data and isinstance(users_data["users"], list):
+                    user_count = len(users_data["users"])
+                    admin_users = [u for u in users_data["users"] if u.get("role") == "admin"]
+                    
+                    self.log_test(
+                        "JWT Authentication - User List",
+                        user_count >= 1 and len(admin_users) >= 1,
+                        f"✅ User list retrieved successfully. Total users: {user_count}, Admin users: {len(admin_users)}",
+                        {"total_users": user_count, "admin_count": len(admin_users)}
+                    )
+                else:
+                    self.log_test(
+                        "JWT Authentication - User List",
+                        False,
+                        f"❌ User list response format incorrect: {users_data}",
+                        users_data
+                    )
+            else:
+                self.log_test(
+                    "JWT Authentication - User List",
+                    False,
+                    f"❌ User list failed with HTTP {users_response.status_code}: {users_response.text}",
+                    users_response.text
+                )
+            
+            # Test 5: Test password reset request
+            print("   Step 5: Testing password reset request...")
+            reset_request_data = {
+                "email": "admin@test.com"  # Assuming admin has this email
+            }
+            
+            reset_request_response = self.session.post(f"{self.base_url}/auth/password-reset-request", json=reset_request_data)
+            
+            if reset_request_response.status_code in [200, 404]:  # 404 is OK if email not found
+                if reset_request_response.status_code == 200:
+                    reset_data = reset_request_response.json()
+                    self.log_test(
+                        "JWT Authentication - Password Reset Request",
+                        True,
+                        f"✅ Password reset request processed: {reset_data.get('message', 'Success')}",
+                        reset_data
+                    )
+                else:
+                    self.log_test(
+                        "JWT Authentication - Password Reset Request",
+                        True,
+                        "✅ Password reset request handled correctly (email not found is expected behavior)",
+                        None
+                    )
+            else:
+                self.log_test(
+                    "JWT Authentication - Password Reset Request",
+                    False,
+                    f"❌ Password reset request failed with HTTP {reset_request_response.status_code}: {reset_request_response.text}",
+                    reset_request_response.text
+                )
+            
+        except Exception as e:
+            self.log_test(
+                "JWT Authentication System",
+                False,
+                f"❌ Error during JWT authentication test: {str(e)}",
+                None
+            )
+
+    def test_ai_response_rating_system(self):
+        """🔥 NEW FEATURE: Test AI Response Rating System"""
+        try:
+            print("   ⭐ Testing AI Response Rating System...")
+            
+            # Ensure we have authentication token
+            if not hasattr(self, 'auth_token') or not self.auth_token:
+                print("   ⚠️ No auth token available, attempting login first...")
+                login_data = {"username": "admin", "password": "admin123"}
+                login_response = self.session.post(f"{self.base_url}/auth/login", json=login_data)
+                if login_response.status_code == 200:
+                    self.auth_token = login_response.json()["access_token"]
+                    self.session.headers.update({"Authorization": f"Bearer {self.auth_token}"})
+                else:
+                    self.log_test(
+                        "AI Response Rating System - Authentication",
+                        False,
+                        "❌ Cannot test rating system without authentication",
+                        None
+                    )
+                    return
+            
+            # Test 1: Create a test chat session first (needed for rating)
+            print("   Step 1: Creating test chat session for rating...")
+            
+            # First check if we have any existing chat sessions
+            try:
+                # Try to ask a question to create a session
+                question_data = {
+                    "question": "Test question for rating system",
+                    "session_id": "test-rating-session-001"
+                }
+                
+                ask_response = self.session.post(f"{self.base_url}/ask-question", json=question_data)
+                
+                if ask_response.status_code == 200:
+                    ask_result = ask_response.json()
+                    test_session_id = ask_result.get("session_id", "test-rating-session-001")
+                    test_chat_session_id = ask_result.get("id", "test-chat-id")
+                    
+                    self.log_test(
+                        "AI Response Rating - Test Session Creation",
+                        True,
+                        f"✅ Test chat session created successfully. Session ID: {test_session_id}",
+                        {"session_id": test_session_id, "chat_session_id": test_chat_session_id}
+                    )
+                else:
+                    # If Q&A doesn't work, we'll use dummy IDs
+                    test_session_id = "test-rating-session-001"
+                    test_chat_session_id = "test-chat-id-001"
+                    self.log_test(
+                        "AI Response Rating - Test Session Creation",
+                        True,
+                        "⚠️ Using dummy session IDs for rating test (Q&A system may not be available)",
+                        None
+                    )
+                    
+            except Exception as e:
+                test_session_id = "test-rating-session-001"
+                test_chat_session_id = "test-chat-id-001"
+                print(f"   Using dummy session IDs due to error: {str(e)}")
+            
+            # Test 2: Add a rating
+            print("   Step 2: Testing rating submission...")
+            rating_data = {
+                "session_id": test_session_id,
+                "chat_session_id": test_chat_session_id,
+                "rating": 4,
+                "feedback": "This is a test rating for the AI response quality system"
+            }
+            
+            rating_response = self.session.post(f"{self.base_url}/ratings", json=rating_data)
+            
+            if rating_response.status_code == 201:
+                rating_result = rating_response.json()
+                required_fields = ["id", "rating", "feedback", "created_at"]
+                missing_fields = [field for field in required_fields if field not in rating_result]
+                
+                if not missing_fields and rating_result.get("rating") == 4:
+                    self.log_test(
+                        "AI Response Rating - Rating Submission",
+                        True,
+                        f"✅ Rating submitted successfully! Rating ID: {rating_result['id']}, Stars: {rating_result['rating']}/5",
+                        rating_result
+                    )
+                else:
+                    self.log_test(
+                        "AI Response Rating - Rating Submission",
+                        False,
+                        f"❌ Rating submitted but response format incorrect. Missing: {missing_fields}",
+                        rating_result
+                    )
+            else:
+                self.log_test(
+                    "AI Response Rating - Rating Submission",
+                    False,
+                    f"❌ Rating submission failed with HTTP {rating_response.status_code}: {rating_response.text}",
+                    rating_response.text
+                )
+            
+            # Test 3: Test rating statistics (admin only)
+            print("   Step 3: Testing rating statistics...")
+            stats_response = self.session.get(f"{self.base_url}/ratings/stats")
+            
+            if stats_response.status_code == 200:
+                stats_data = stats_response.json()
+                required_stats = ["total_ratings", "average_rating", "rating_distribution"]
+                missing_stats = [field for field in required_stats if field not in stats_data]
+                
+                if not missing_stats:
+                    total_ratings = stats_data["total_ratings"]
+                    avg_rating = stats_data["average_rating"]
+                    distribution = stats_data["rating_distribution"]
+                    
+                    self.log_test(
+                        "AI Response Rating - Statistics",
+                        True,
+                        f"✅ Rating statistics retrieved successfully! Total: {total_ratings}, Average: {avg_rating:.2f}/5.0, Distribution: {distribution}",
+                        stats_data
+                    )
+                else:
+                    self.log_test(
+                        "AI Response Rating - Statistics",
+                        False,
+                        f"❌ Rating statistics missing required fields: {missing_stats}",
+                        stats_data
+                    )
+            else:
+                self.log_test(
+                    "AI Response Rating - Statistics",
+                    False,
+                    f"❌ Rating statistics failed with HTTP {stats_response.status_code}: {stats_response.text}",
+                    stats_response.text
+                )
+            
+            # Test 4: Test low-rated responses (admin only)
+            print("   Step 4: Testing low-rated responses...")
+            low_rated_response = self.session.get(f"{self.base_url}/ratings/low-rated")
+            
+            if low_rated_response.status_code == 200:
+                low_rated_data = low_rated_response.json()
+                if "low_rated_responses" in low_rated_data and isinstance(low_rated_data["low_rated_responses"], list):
+                    low_count = len(low_rated_data["low_rated_responses"])
+                    self.log_test(
+                        "AI Response Rating - Low Rated Responses",
+                        True,
+                        f"✅ Low-rated responses retrieved successfully! Found {low_count} low-rated responses",
+                        {"count": low_count}
+                    )
+                else:
+                    self.log_test(
+                        "AI Response Rating - Low Rated Responses",
+                        False,
+                        f"❌ Low-rated responses response format incorrect: {low_rated_data}",
+                        low_rated_data
+                    )
+            else:
+                self.log_test(
+                    "AI Response Rating - Low Rated Responses",
+                    False,
+                    f"❌ Low-rated responses failed with HTTP {low_rated_response.status_code}: {low_rated_response.text}",
+                    low_rated_response.text
+                )
+            
+            # Test 5: Test rating validation (invalid rating)
+            print("   Step 5: Testing rating validation...")
+            invalid_rating_data = {
+                "session_id": test_session_id,
+                "chat_session_id": test_chat_session_id,
+                "rating": 6,  # Invalid - should be 1-5
+                "feedback": "Invalid rating test"
+            }
+            
+            invalid_rating_response = self.session.post(f"{self.base_url}/ratings", json=invalid_rating_data)
+            
+            if invalid_rating_response.status_code == 422:  # Validation error
+                self.log_test(
+                    "AI Response Rating - Validation",
+                    True,
+                    "✅ Rating validation working correctly - rejected invalid rating (6/5)",
+                    None
+                )
+            else:
+                self.log_test(
+                    "AI Response Rating - Validation",
+                    False,
+                    f"❌ Rating validation failed - should reject rating > 5. Got HTTP {invalid_rating_response.status_code}",
+                    invalid_rating_response.text
+                )
+            
+        except Exception as e:
+            self.log_test(
+                "AI Response Rating System",
+                False,
+                f"❌ Error during AI response rating test: {str(e)}",
+                None
+            )
+
+    def test_role_based_access_control(self):
+        """🔥 NEW FEATURE: Test Role-Based Access Control"""
+        try:
+            print("   🛡️ Testing Role-Based Access Control...")
+            
+            # Test 1: Test admin access to protected endpoints
+            print("   Step 1: Testing admin access...")
+            
+            # Login as admin
+            admin_login = {"username": "admin", "password": "admin123"}
+            admin_login_response = self.session.post(f"{self.base_url}/auth/login", json=admin_login)
+            
+            if admin_login_response.status_code == 200:
+                admin_token = admin_login_response.json()["access_token"]
+                admin_headers = {"Authorization": f"Bearer {admin_token}"}
+                
+                # Test admin-only endpoints
+                admin_endpoints = [
+                    ("/auth/users", "GET", "User list"),
+                    ("/ratings/stats", "GET", "Rating statistics"),
+                    ("/ratings/low-rated", "GET", "Low-rated responses")
+                ]
+                
+                admin_access_results = []
+                
+                for endpoint, method, description in admin_endpoints:
+                    if method == "GET":
+                        response = self.session.get(f"{self.base_url}{endpoint}", headers=admin_headers)
+                    else:
+                        response = self.session.post(f"{self.base_url}{endpoint}", headers=admin_headers)
+                    
+                    admin_access_results.append({
+                        "endpoint": endpoint,
+                        "description": description,
+                        "status_code": response.status_code,
+                        "accessible": response.status_code in [200, 201]
+                    })
+                
+                admin_success_count = sum(1 for r in admin_access_results if r["accessible"])
+                
+                self.log_test(
+                    "Role-Based Access Control - Admin Access",
+                    admin_success_count >= len(admin_endpoints) * 0.8,  # 80% success rate
+                    f"✅ Admin access test: {admin_success_count}/{len(admin_endpoints)} admin endpoints accessible",
+                    admin_access_results
+                )
+            else:
+                self.log_test(
+                    "Role-Based Access Control - Admin Login",
+                    False,
+                    f"❌ Cannot test RBAC - admin login failed: HTTP {admin_login_response.status_code}",
+                    admin_login_response.text
+                )
+                return
+            
+            # Test 2: Test unauthenticated access
+            print("   Step 2: Testing unauthenticated access...")
+            
+            # Remove auth headers
+            temp_session = requests.Session()
+            temp_session.timeout = 30
+            
+            protected_endpoints = [
+                ("/auth/me", "GET"),
+                ("/auth/users", "GET"),
+                ("/ratings", "POST"),
+                ("/ratings/stats", "GET")
+            ]
+            
+            unauth_results = []
+            for endpoint, method in protected_endpoints:
+                if method == "GET":
+                    response = temp_session.get(f"{self.base_url}{endpoint}")
+                else:
+                    response = temp_session.post(f"{self.base_url}{endpoint}", json={})
+                
+                unauth_results.append({
+                    "endpoint": endpoint,
+                    "status_code": response.status_code,
+                    "properly_blocked": response.status_code == 401
+                })
+            
+            blocked_count = sum(1 for r in unauth_results if r["properly_blocked"])
+            
+            self.log_test(
+                "Role-Based Access Control - Unauthenticated Access",
+                blocked_count >= len(protected_endpoints) * 0.8,  # 80% should be blocked
+                f"✅ Unauthenticated access control: {blocked_count}/{len(protected_endpoints)} protected endpoints properly blocked",
+                unauth_results
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "Role-Based Access Control",
+                False,
+                f"❌ Error during RBAC test: {str(e)}",
+                None
+            )
+
+    def test_protected_endpoints_verification(self):
+        """🔥 NEW FEATURE: Test Protected Endpoints Verification"""
+        try:
+            print("   🔒 Testing Protected Endpoints Verification...")
+            
+            # Ensure we have admin authentication
+            admin_login = {"username": "admin", "password": "admin123"}
+            admin_login_response = self.session.post(f"{self.base_url}/auth/login", json=admin_login)
+            
+            if admin_login_response.status_code != 200:
+                self.log_test(
+                    "Protected Endpoints - Authentication Setup",
+                    False,
+                    f"❌ Cannot test protected endpoints - admin login failed: HTTP {admin_login_response.status_code}",
+                    admin_login_response.text
+                )
+                return
+            
+            admin_token = admin_login_response.json()["access_token"]
+            admin_headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            # Test 1: Document upload protection (should require editor+ role)
+            print("   Step 1: Testing document upload protection...")
+            
+            test_file = {'file': ('protected_test.docx', b'PK\x03\x04test_content', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')}
+            
+            # Test with admin (should work)
+            admin_upload_response = self.session.post(f"{self.base_url}/upload-document", files=test_file, headers=admin_headers)
+            
+            # Test without auth (should fail)
+            unauth_upload_response = self.session.post(f"{self.base_url}/upload-document", files=test_file)
+            
+            upload_protection_working = (
+                admin_upload_response.status_code in [200, 400] and  # 400 might be due to fake file content
+                unauth_upload_response.status_code == 401
+            )
+            
+            self.log_test(
+                "Protected Endpoints - Document Upload",
+                upload_protection_working,
+                f"✅ Document upload protection: Admin access {admin_upload_response.status_code}, Unauth access {unauth_upload_response.status_code}",
+                {
+                    "admin_status": admin_upload_response.status_code,
+                    "unauth_status": unauth_upload_response.status_code
+                }
+            )
+            
+            # Test 2: Q&A system with authentication
+            print("   Step 2: Testing Q&A system authentication...")
+            
+            question_data = {
+                "question": "Test question for authentication verification",
+                "session_id": "auth-test-session"
+            }
+            
+            # Test Q&A with auth (should work)
+            auth_qa_response = self.session.post(f"{self.base_url}/ask-question", json=question_data, headers=admin_headers)
+            
+            # Test Q&A without auth (behavior depends on implementation)
+            unauth_qa_response = self.session.post(f"{self.base_url}/ask-question", json=question_data)
+            
+            # Q&A might be allowed for unauthenticated users or might require auth
+            qa_auth_status = "protected" if unauth_qa_response.status_code == 401 else "public"
+            
+            self.log_test(
+                "Protected Endpoints - Q&A System",
+                True,  # This is informational, both behaviors are valid
+                f"✅ Q&A system authentication status: {qa_auth_status}. Auth access: {auth_qa_response.status_code}, Unauth access: {unauth_qa_response.status_code}",
+                {
+                    "auth_status": auth_qa_response.status_code,
+                    "unauth_status": unauth_qa_response.status_code,
+                    "qa_auth_required": qa_auth_status == "protected"
+                }
+            )
+            
+            # Test 3: Rating system protection
+            print("   Step 3: Testing rating system protection...")
+            
+            rating_data = {
+                "session_id": "test-session",
+                "chat_session_id": "test-chat-id",
+                "rating": 5,
+                "feedback": "Test rating"
+            }
+            
+            # Test rating without auth (should fail)
+            unauth_rating_response = self.session.post(f"{self.base_url}/ratings", json=rating_data)
+            
+            rating_protection_working = unauth_rating_response.status_code == 401
+            
+            self.log_test(
+                "Protected Endpoints - Rating System",
+                rating_protection_working,
+                f"✅ Rating system protection: Unauth access properly blocked ({unauth_rating_response.status_code})",
+                {"unauth_status": unauth_rating_response.status_code}
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "Protected Endpoints Verification",
+                False,
+                f"❌ Error during protected endpoints test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
-        """Run all backend tests including NEW FAQ System feature"""
+        """Run all backend tests including NEW Authentication and Rating System features"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🔥 PRIORITY TEST: Q&A System Gemini API Issue Diagnosis")
-        print("📋 Testing: Gemini API overload handling, error messages, system health")
+        print("🔥 PRIORITY TESTS: JWT Authentication & AI Response Rating System")
+        print("📋 Testing: Authentication endpoints, rating system, role-based access control")
         print()
         
         # Test basic connectivity first
@@ -7316,7 +7930,16 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Stopping tests.")
             return self.get_summary()
         
-        # 🔥 PRIORITY TEST FIRST - Q&A System Gemini API Issue
+        # 🔥 NEW PRIORITY TESTS FIRST - Authentication & Rating System
+        print("🔥 NEW PRIORITY TESTS - AUTHENTICATION & RATING SYSTEM:")
+        print("-" * 65)
+        self.test_jwt_authentication_system()
+        self.test_ai_response_rating_system()
+        self.test_role_based_access_control()
+        self.test_protected_endpoints_verification()
+        print()
+        
+        # 🔥 PRIORITY TEST - Q&A System Gemini API Issue
         print("🔥 PRIORITY TEST - Q&A SYSTEM GEMINI API ISSUE:")
         print("-" * 60)
         self.test_qa_system_gemini_api_issue()
