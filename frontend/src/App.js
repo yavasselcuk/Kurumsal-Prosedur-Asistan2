@@ -67,6 +67,10 @@ function App() {
     fetchRecentQuestions();
     // Favori soruları al
     fetchFavoriteQuestions();
+    // FAQ'ları al
+    fetchFaqItems();
+    // FAQ analytics'i al
+    fetchFaqAnalytics();
   }, []);
 
   useEffect(() => {
