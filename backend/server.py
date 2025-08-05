@@ -226,6 +226,75 @@ class DocumentSearchResult(BaseModel):
     total_matches: int
     match_score: float  # Relevance score
 
+# Authentication and User Management Models
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    email: str
+    full_name: str
+    role: str = "viewer"  # admin, editor, viewer
+    is_active: bool = True
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login: Optional[datetime] = None
+    created_by: Optional[str] = None  # Admin who created this user
+
+class UserInfo(BaseModel):
+    id: str
+    username: str
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    last_login: Optional[datetime]
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    full_name: str
+    password: str
+    role: str = "viewer"
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    user_info: UserInfo
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+class PasswordReset(BaseModel):
+    reset_token: str
+    new_password: str
+
+# AI Response Rating Models
+class ResponseRating(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    chat_session_id: str  # Reference to ChatSession
+    rating: int  # 1-5 stars
+    feedback: Optional[str] = None  # User feedback comment
+    user_id: Optional[str] = None  # User who rated (if authenticated)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class RatingRequest(BaseModel):
+    session_id: str
+    chat_session_id: str
+    rating: int = Field(ge=1, le=5)  # 1-5 stars validation
+    feedback: Optional[str] = None
+
+class RatingStats(BaseModel):
+    total_ratings: int
+    average_rating: float
+    rating_distribution: Dict[int, int]  # {1: count, 2: count, ...}
+    recent_feedback: List[dict]
+
 # Helper functions
 async def extract_text_from_document(file_content: bytes, filename: str) -> str:
     """Word dokümanından metin çıkarma (.doc ve .docx desteği) - Improved"""
