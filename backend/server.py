@@ -2523,6 +2523,106 @@ async def download_original_document(document_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Orijinal doküman download edilirken hata: {str(e)}")
 
+@api_router.post("/search-in-documents")
+async def search_documents(request: DocumentSearchRequest):
+    """Dokümanlar içinde metin arama"""
+    try:
+        if not request.query.strip():
+            raise HTTPException(status_code=400, detail="Arama sorgusu boş olamaz")
+        
+        # Arama gerçekleştir
+        search_results = await search_in_documents(
+            query=request.query,
+            document_ids=request.document_ids if request.document_ids else None,
+            group_ids=request.group_ids if request.group_ids else None,
+            search_type=request.search_type,
+            case_sensitive=request.case_sensitive,
+            max_results=request.max_results,
+            highlight_context=request.highlight_context
+        )
+        
+        # İstatistikleri hesapla
+        total_documents_searched = len(search_results)
+        total_matches = sum(result["total_matches"] for result in search_results)
+        
+        return {
+            "query": request.query,
+            "search_type": request.search_type,
+            "case_sensitive": request.case_sensitive,
+            "results": search_results,
+            "statistics": {
+                "total_documents_searched": total_documents_searched,
+                "total_matches": total_matches,
+                "documents_with_matches": len([r for r in search_results if r["total_matches"] > 0]),
+                "average_match_score": sum(r["match_score"] for r in search_results) / len(search_results) if search_results else 0
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Doküman aramasında hata: {str(e)}")
+
+@api_router.get("/search-suggestions")
+async def get_search_suggestions(q: str, limit: int = 10):
+    """Arama önerileri - önceki aramalar ve popüler terimler"""
+    try:
+        if not q or len(q.strip()) < 2:
+            return {
+                "suggestions": [],
+                "query": q,
+                "count": 0
+            }
+        
+        suggestions = []
+        
+        # Doküman içeriklerinden yaygın terimleri çıkar
+        all_docs = await db.documents.find({}).to_list(100)
+        
+        # Term frequency analysis
+        term_frequency = {}
+        query_lower = q.lower()
+        
+        for doc in all_docs:
+            chunks = doc.get("chunks", [])
+            for chunk in chunks:
+                if isinstance(chunk, str):
+                    words = chunk.lower().split()
+                    for word in words:
+                        # Query ile başlayan veya içeren kelimeleri bul
+                        if (len(word) >= 3 and 
+                            (word.startswith(query_lower) or query_lower in word) and
+                            word != query_lower):
+                            
+                            if word not in term_frequency:
+                                term_frequency[word] = 0
+                            term_frequency[word] += 1
+        
+        # En sık kullanılan terimleri al
+        sorted_terms = sorted(term_frequency.items(), key=lambda x: x[1], reverse=True)
+        
+        for term, frequency in sorted_terms[:limit]:
+            suggestions.append({
+                "text": term,
+                "type": "term",
+                "frequency": frequency,
+                "icon": "🔍"
+            })
+        
+        return {
+            "suggestions": suggestions,
+            "query": q,
+            "count": len(suggestions)
+        }
+        
+    except Exception as e:
+        logging.error(f"Search suggestions error: {str(e)}")
+        return {
+            "suggestions": [],
+            "query": q,
+            "count": 0
+        }
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
