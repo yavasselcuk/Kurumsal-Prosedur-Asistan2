@@ -13,6 +13,7 @@ const SearchTab = ({
   loadingSearch,
   searchSuggestions,
   showSearchSuggestions,
+  setShowSearchSuggestions,
   performDocumentSearch,
   handleSearchQueryChange,
   handleSearchSuggestionSelect,
