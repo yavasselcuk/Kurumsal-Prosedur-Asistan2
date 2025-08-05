@@ -102,6 +102,32 @@ class ChatSession(BaseModel):
     source_groups: List[str] = []  # Kaynak grup adları
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+class FavoriteQuestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    question: str
+    answer: str  # İlk verilen cevap
+    original_session_id: str  # Orijinal session ID
+    source_documents: List[str] = []  # Kaynak dokümanlar
+    tags: List[str] = []  # Kullanıcı etiketleri
+    category: Optional[str] = None  # Kategori (İK, Finans, vb.)
+    notes: Optional[str] = None  # Kullanıcı notları
+    favorite_count: int = 1  # Kaç kez favorilendi
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_accessed: Optional[datetime] = None
+
+class FavoriteQuestionInfo(BaseModel):
+    id: str
+    question: str
+    answer_preview: str  # İlk 200 karakter
+    original_session_id: str
+    source_documents: List[str]
+    tags: List[str]
+    category: Optional[str]
+    notes: Optional[str]
+    favorite_count: int
+    created_at: datetime
+    last_accessed: Optional[datetime]
+
 class SystemStatus(BaseModel):
     total_documents: int
     total_chunks: int
