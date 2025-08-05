@@ -1725,6 +1725,8 @@ async def delete_faq_item(faq_id: str):
         
         return {"message": "FAQ öğesi başarıyla silindi"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"FAQ silinirken hata: {str(e)}")
 
