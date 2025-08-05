@@ -5138,6 +5138,11 @@ class KPABackendTester:
         # Enhanced features tests
         self.test_file_validation()
         
+        # 🔥 PRIORITY TEST - Enhanced DOC Processing Fix for PDF Viewer
+        print("\n🔥 PRIORITY TEST - ENHANCED DOC PROCESSING FIX:")
+        print("-" * 55)
+        self.test_enhanced_doc_processing_fix()
+        
         print("\n📚 EXISTING FEATURES VALIDATION:")
         print("-" * 40)
         
