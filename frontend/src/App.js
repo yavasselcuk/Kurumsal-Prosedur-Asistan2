@@ -40,6 +40,14 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedTag, setSelectedTag] = useState('all');
   
+  // FAQ için yeni state'ler
+  const [faqItems, setFaqItems] = useState([]);
+  const [loadingFaq, setLoadingFaq] = useState(false);
+  const [faqCategories, setFaqCategories] = useState([]);
+  const [selectedFaqCategory, setSelectedFaqCategory] = useState('all');
+  const [faqAnalytics, setFaqAnalytics] = useState(null);
+  const [generatingFaq, setGeneratingFaq] = useState(false);
+  
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
