@@ -1530,6 +1530,184 @@ Lütfen sadece yukarıdaki kontekst bilgilerini kullanarak soruyu cevapla."""
 async def root():
     return {"message": "Kurumsal Prosedür Asistanı API'sine hoş geldiniz!"}
 
+# Authentication Endpoints
+@api_router.post("/auth/login", response_model=Token)
+async def login(user_credentials: UserLogin):
+    """User login with username and password"""
+    try:
+        # Find user in database
+        user = await db.users.find_one({"username": user_credentials.username})
+        
+        if not user or not verify_password(user_credentials.password, user["password_hash"]):
+            raise HTTPException(
+                status_code=401,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        if not user.get("is_active", False):
+            raise HTTPException(status_code=400, detail="Inactive user")
+        
+        # Update last login
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"last_login": datetime.utcnow()}}
+        )
+        
+        # Create access token
+        access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+        access_token = create_access_token(
+            data={"sub": user["username"], "role": user["role"]}, 
+            expires_delta=access_token_expires
+        )
+        
+        user_info = UserInfo(
+            id=user["id"],
+            username=user["username"],
+            email=user["email"],
+            full_name=user["full_name"],
+            role=user["role"],
+            is_active=user["is_active"],
+            created_at=user["created_at"],
+            last_login=user.get("last_login")
+        )
+        
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # seconds
+            user_info=user_info
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Login error: {str(e)}")
+
+@api_router.post("/auth/create-user", response_model=UserInfo)
+async def create_user(user_data: UserCreate, current_user: dict = Depends(require_admin)):
+    """Create new user (admin only)"""
+    try:
+        # Check if username or email already exists
+        existing_username = await db.users.find_one({"username": user_data.username})
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        existing_email = await db.users.find_one({"email": user_data.email})
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
+        # Validate role
+        if user_data.role not in ["admin", "editor", "viewer"]:
+            raise HTTPException(status_code=400, detail="Invalid role. Must be admin, editor, or viewer")
+        
+        # Create new user
+        new_user = User(
+            username=user_data.username,
+            email=user_data.email,
+            full_name=user_data.full_name,
+            role=user_data.role,
+            password_hash=get_password_hash(user_data.password),
+            created_by=current_user["id"]
+        )
+        
+        # Insert into database
+        await db.users.insert_one(new_user.dict())
+        
+        return UserInfo(
+            id=new_user.id,
+            username=new_user.username,
+            email=new_user.email,
+            full_name=new_user.full_name,
+            role=new_user.role,
+            is_active=new_user.is_active,
+            created_at=new_user.created_at,
+            last_login=new_user.last_login
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"User creation error: {str(e)}")
+
+@api_router.get("/auth/me", response_model=UserInfo)
+async def get_current_user_info(current_user: dict = Depends(get_current_active_user)):
+    """Get current user information"""
+    return UserInfo(
+        id=current_user["id"],
+        username=current_user["username"],
+        email=current_user["email"],
+        full_name=current_user["full_name"],
+        role=current_user["role"],
+        is_active=current_user["is_active"],
+        created_at=current_user["created_at"],
+        last_login=current_user.get("last_login")
+    )
+
+@api_router.get("/auth/users")
+async def get_all_users(current_user: dict = Depends(require_admin)):
+    """Get all users (admin only)"""
+    try:
+        users = await db.users.find({}, {"password_hash": 0, "_id": 0}).to_list(None)
+        return {"users": users, "total_count": len(users)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+
+@api_router.post("/auth/password-reset-request")
+async def request_password_reset(request: PasswordResetRequest):
+    """Request password reset (send reset token to email)"""
+    try:
+        user = await db.users.find_one({"email": request.email})
+        if not user:
+            # Don't reveal if email exists for security
+            return {"message": "If the email exists, a reset token has been sent"}
+        
+        # Create reset token (expires in 1 hour)
+        reset_token = create_access_token(
+            data={"sub": user["username"], "type": "password_reset"},
+            expires_delta=timedelta(hours=1)
+        )
+        
+        # In production, send email with reset token
+        # For now, just log it (in production, remove this)
+        logging.info(f"Password reset token for {request.email}: {reset_token}")
+        
+        return {"message": "If the email exists, a reset token has been sent"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Password reset request error: {str(e)}")
+
+@api_router.post("/auth/password-reset")
+async def reset_password(reset_data: PasswordReset):
+    """Reset password with token"""
+    try:
+        # Verify reset token
+        payload = jwt.decode(reset_data.reset_token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        token_type = payload.get("type")
+        
+        if not username or token_type != "password_reset":
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+        
+        # Update password
+        new_password_hash = get_password_hash(reset_data.new_password)
+        result = await db.users.update_one(
+            {"username": username},
+            {"$set": {"password_hash": new_password_hash}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {"message": "Password reset successfully"}
+        
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Password reset error: {str(e)}")
+
 @api_router.get("/status", response_model=SystemStatus)
 async def get_system_status():
     """Sistem durumunu getir"""
