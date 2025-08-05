@@ -1776,7 +1776,7 @@ async def create_group(request: GroupCreateRequest, current_user: dict = Depends
         raise HTTPException(status_code=500, detail=f"Grup oluşturulurken hata: {str(e)}")
 
 @api_router.put("/groups/{group_id}")
-async def update_group(group_id: str, request: GroupCreateRequest):
+async def update_group(group_id: str, request: GroupCreateRequest, current_user: dict = Depends(require_editor_or_admin)):
     """Grup güncelle"""
     try:
         # Grup adı benzersizliği kontrolü (kendi ID'si hariç)
