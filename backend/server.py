@@ -1541,6 +1541,193 @@ async def replay_favorite_question(favorite_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Favori soru tekrar çalıştırılırken hata: {str(e)}")
 
+@api_router.get("/faq")
+async def get_faq_items(category: Optional[str] = None, active_only: bool = True, limit: int = 50):
+    """FAQ listesini getir"""
+    try:
+        # Filtre oluştur
+        filter_query = {}
+        if category:
+            filter_query["category"] = category
+        if active_only:
+            filter_query["is_active"] = True
+        
+        # FAQ'ları getir (frekansa göre sıralı)
+        faq_items = await db.faq_items.find(filter_query).sort("frequency", -1).limit(limit).to_list(limit)
+        
+        # İstatistikler
+        total_faqs = await db.faq_items.count_documents({})
+        active_faqs = await db.faq_items.count_documents({"is_active": True})
+        categories = await db.faq_items.distinct("category")
+        
+        # Toplam soru sayısı
+        total_frequency = sum(item.get("frequency", 0) for item in faq_items)
+        
+        return {
+            "faq_items": faq_items,
+            "statistics": {
+                "total_faqs": total_faqs,
+                "active_faqs": active_faqs,
+                "returned_count": len(faq_items),
+                "available_categories": categories,
+                "total_frequency": total_frequency
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FAQ listesi alınırken hata: {str(e)}")
+
+@api_router.post("/faq/generate")
+async def generate_faq(request: FAQGenerateRequest):
+    """Chat geçmişinden otomatik FAQ oluştur"""
+    try:
+        # FAQ'ları oluştur
+        faq_items = await generate_faq_from_analytics(
+            min_frequency=request.min_frequency,
+            similarity_threshold=request.similarity_threshold,
+            max_items=request.max_faq_items
+        )
+        
+        if not faq_items:
+            return {
+                "message": "Yeterli veri bulunamadı. FAQ oluşturulamadı.",
+                "generated_count": 0,
+                "faq_items": []
+            }
+        
+        # Veritabanını güncelle
+        update_result = await update_faq_database()
+        
+        return {
+            "message": f"FAQ başarıyla oluşturuldu. {update_result['new_items']} yeni, {update_result['updated_items']} güncellenmiş öğe.",
+            "generated_count": len(faq_items),
+            "new_items": update_result['new_items'],
+            "updated_items": update_result['updated_items'],
+            "faq_items": faq_items[:10]  # İlk 10'unu göster
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FAQ oluşturulurken hata: {str(e)}")
+
+@api_router.get("/faq/analytics")
+async def get_faq_analytics():
+    """FAQ analytics ve istatistikleri"""
+    try:
+        # Soru frekansı analizi
+        frequencies = await analyze_question_frequency()
+        
+        # En sık sorulan 10 soru
+        top_questions = sorted(
+            [(q, data["count"]) for q, data in frequencies.items()],
+            key=lambda x: x[1],
+            reverse=True
+        )[:10]
+        
+        # Kategori dağılımı
+        category_stats = {}
+        faq_items = await db.faq_items.find({}).to_list(1000)
+        
+        for item in faq_items:
+            category = item.get("category", "Genel")
+            if category not in category_stats:
+                category_stats[category] = {"count": 0, "total_frequency": 0}
+            category_stats[category]["count"] += 1
+            category_stats[category]["total_frequency"] += item.get("frequency", 0)
+        
+        # Toplam chat session sayısı
+        total_sessions = await db.chat_sessions.count_documents({})
+        
+        return {
+            "total_questions_analyzed": len(frequencies),
+            "total_chat_sessions": total_sessions,
+            "top_questions": top_questions,
+            "category_distribution": category_stats,
+            "faq_recommendations": {
+                "should_generate": len(top_questions) > 5,
+                "recommended_min_frequency": 2,
+                "potential_faq_count": len([q for q, c in top_questions if c >= 2])
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FAQ analytics alınırken hata: {str(e)}")
+
+@api_router.post("/faq/{faq_id}/ask")
+async def ask_faq_question(faq_id: str):
+    """FAQ sorusunu tekrar sor (yeni session ile)"""
+    try:
+        # FAQ öğesini bul
+        faq_item = await db.faq_items.find_one({"id": faq_id})
+        
+        if not faq_item:
+            raise HTTPException(status_code=404, detail="FAQ öğesi bulunamadı")
+        
+        # Yeni session ID oluştur
+        new_session_id = str(uuid.uuid4())
+        
+        # Soruyu tekrar çalıştır
+        question_request = QuestionRequest(
+            question=faq_item["question"],
+            session_id=new_session_id
+        )
+        
+        result = await ask_question(question_request)
+        
+        return {
+            "message": "FAQ sorusu başarıyla çalıştırıldı",
+            "faq_id": faq_id,
+            "original_question": faq_item["question"],
+            "new_session_id": new_session_id,
+            "result": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FAQ sorusu çalıştırılırken hata: {str(e)}")
+
+@api_router.put("/faq/{faq_id}")
+async def update_faq_item(faq_id: str, updates: dict):
+    """FAQ öğesini güncelle"""
+    try:
+        # Güncellenebilir alanları filtrele
+        allowed_fields = ["question", "answer", "category", "is_active", "manual_override"]
+        update_data = {k: v for k, v in updates.items() if k in allowed_fields}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="Güncellenecek geçerli alan bulunamadı")
+        
+        update_data["last_updated"] = datetime.utcnow()
+        
+        result = await db.faq_items.update_one(
+            {"id": faq_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="FAQ öğesi bulunamadı")
+        
+        return {"message": "FAQ öğesi başarıyla güncellendi"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FAQ güncellenirken hata: {str(e)}")
+
+@api_router.delete("/faq/{faq_id}")
+async def delete_faq_item(faq_id: str):
+    """FAQ öğesini sil"""
+    try:
+        result = await db.faq_items.delete_one({"id": faq_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="FAQ öğesi bulunamadı")
+        
+        return {"message": "FAQ öğesi başarıyla silindi"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FAQ silinirken hata: {str(e)}")
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
