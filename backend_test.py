@@ -4886,6 +4886,12 @@ class KPABackendTester:
         # 🆕 NEW PDF VIEWER INTEGRATION TESTS
         self.test_pdf_viewer_integration()
         
+        print("\n🔥 CRITICAL PDF VIEWER BUG FIX TESTS:")
+        print("-" * 50)
+        
+        # 🔥 CRITICAL: PDF Viewer Bug Fix Testing
+        self.test_pdf_viewer_bug_fix()
+        
         return self.get_summary()
 
     def get_summary(self):
