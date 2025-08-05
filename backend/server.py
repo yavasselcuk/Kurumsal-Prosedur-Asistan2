@@ -151,6 +151,20 @@ class DocumentMoveRequest(BaseModel):
     document_ids: List[str]
     group_id: Optional[str] = None  # None = "Gruplandırılmamış"
 
+class FavoriteQuestionRequest(BaseModel):
+    session_id: str
+    question: str
+    answer: str
+    source_documents: List[str] = []
+    category: Optional[str] = None
+    tags: List[str] = []
+    notes: Optional[str] = None
+
+class FavoriteQuestionUpdateRequest(BaseModel):
+    category: Optional[str] = None
+    tags: List[str] = []
+    notes: Optional[str] = None
+
 # Helper functions
 async def extract_text_from_document(file_content: bytes, filename: str) -> str:
     """Word dokümanından metin çıkarma (.doc ve .docx desteği) - Improved"""
