@@ -3169,7 +3169,7 @@ async def delete_document(document_id: str, background_tasks: BackgroundTasks, c
         raise HTTPException(status_code=500, detail=f"Doküman silinirken hata: {str(e)}")
 
 @api_router.delete("/documents")
-async def delete_all_documents(background_tasks: BackgroundTasks, confirm: bool = False):
+async def delete_all_documents(background_tasks: BackgroundTasks, confirm: bool = False, current_user: dict = Depends(require_admin)):
     """Tüm dokümanları sil (tehlikeli işlem)"""
     try:
         if not confirm:
