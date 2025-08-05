@@ -3224,6 +3224,13 @@ class KPABackendTester:
         # 📚 Source Documents and Links Integration (Existing Feature)
         self.test_source_documents_and_links_integration()
         
+        print("\n🆕 NEW FEATURE TEST - FAVORITE QUESTIONS SYSTEM:")
+        print("-" * 55)
+        
+        # 🆕 NEW FAVORITE QUESTIONS SYSTEM TESTS
+        self.test_favorite_questions_system()
+        self.test_favorite_questions_edge_cases()
+        
         return self.get_summary()
 
     def get_summary(self):
