@@ -1523,6 +1523,197 @@ ${doc.content_preview || 'Önizleme mevcut değil'}
               )}
             </div>
           </div>
+        ) : activeTab === 'faq' ? (
+          /* FAQ Tab */
+          <div className="space-y-6">
+            {/* FAQ Header ve Analytics */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">❓ Sık Sorulan Sorular</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={generateFaq}
+                    disabled={generatingFaq}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
+                  >
+                    🤖 {generatingFaq ? 'Oluşturuluyor...' : 'Otomatik FAQ Oluştur'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      fetchFaqItems();
+                      fetchFaqAnalytics();
+                    }}
+                    disabled={loadingFaq}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                  >
+                    🔄 {loadingFaq ? 'Yükleniyor...' : 'Yenile'}
+                  </button>
+                </div>
+              </div>
+
+              {/* FAQ Analytics */}
+              {faqAnalytics && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">📊 FAQ Analytics</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{faqAnalytics.total_questions_analyzed}</div>
+                      <div className="text-sm text-gray-600">Toplam Soru</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{faqAnalytics.total_chat_sessions}</div>
+                      <div className="text-sm text-gray-600">Chat Session</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">{faqAnalytics.faq_recommendations?.potential_faq_count}</div>
+                      <div className="text-sm text-gray-600">Potansiyel FAQ</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-600">{Object.keys(faqAnalytics.category_distribution || {}).length}</div>
+                      <div className="text-sm text-gray-600">Kategori</div>
+                    </div>
+                  </div>
+                  
+                  {/* Top Questions Preview */}
+                  {faqAnalytics.top_questions && faqAnalytics.top_questions.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-medium text-gray-900 mb-2">🔥 En Sık Sorulananlar:</h4>
+                      <div className="space-y-1">
+                        {faqAnalytics.top_questions.slice(0, 3).map((question, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span className="text-gray-700 line-clamp-1">{question[0]}</span>
+                            <span className="text-blue-600 font-medium">{question[1]}x</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Kategori Filtresi */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kategori Filtresi</label>
+                <select
+                  value={selectedFaqCategory}
+                  onChange={(e) => {
+                    setSelectedFaqCategory(e.target.value);
+                    // Filtreyi uygula
+                    setTimeout(() => fetchFaqItems(), 100);
+                  }}
+                  className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">Tüm Kategoriler</option>
+                  {faqCategories.map((category, index) => (
+                    <option key={index} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* FAQ Listesi */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 FAQ Listesi</h3>
+              
+              {loadingFaq ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">FAQ yükleniyor...</p>
+                </div>
+              ) : faqItems.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">❓</span>
+                  </div>
+                  <p className="text-gray-600">Henüz FAQ bulunmuyor.</p>
+                  <p className="text-gray-500 text-sm mt-1">
+                    Otomatik FAQ oluşturmak için yukarıdaki "🤖 Otomatik FAQ Oluştur" butonunu kullanın.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {faqItems.map((faq, index) => (
+                    <div
+                      key={faq.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            {faq.question}
+                          </h4>
+                          <div className="prose prose-sm max-w-none text-gray-600 mb-3">
+                            {faq.answer && (
+                              <p className="line-clamp-3">
+                                {faq.answer.length > 300 ? faq.answer.substring(0, 300) + '...' : faq.answer}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Benzer Sorular */}
+                          {faq.similar_questions && faq.similar_questions.length > 0 && (
+                            <div className="mb-3">
+                              <h5 className="text-sm font-medium text-gray-700 mb-1">🔗 Benzer Sorular:</h5>
+                              <div className="flex flex-wrap gap-2">
+                                {faq.similar_questions.slice(0, 3).map((simQ, simIndex) => (
+                                  <span 
+                                    key={simIndex}
+                                    className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
+                                  >
+                                    {simQ.length > 50 ? simQ.substring(0, 50) + '...' : simQ}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Meta Bilgiler */}
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {faq.category && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                                📁 {faq.category}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                              🔥 {faq.frequency} kez soruldu
+                            </span>
+                            {faq.manual_override && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                                ✋ Manuel
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end space-y-2 ml-4">
+                          <span className="text-xs text-gray-500">
+                            {new Date(faq.created_at).toLocaleDateString('tr-TR')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          {faq.last_updated && (
+                            <span>🕒 Son güncelleme: {new Date(faq.last_updated).toLocaleDateString('tr-TR')}</span>
+                          )}
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => askFaqQuestion(faq.id, faq.question)}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                          >
+                            💭 Bu Soruyu Sor
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           /* Documents Tab */
           <div className="space-y-6">
