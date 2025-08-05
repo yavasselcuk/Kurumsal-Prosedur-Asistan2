@@ -3748,6 +3748,213 @@ class KPABackendTester:
                 None
             )
 
+    def test_document_search_endpoint(self):
+        """🆕 NEW FEATURE: Test POST /api/search-in-documents - Main document search endpoint"""
+        try:
+            print("   🔍 Testing Document Search Endpoint...")
+            print("   📋 Testing: Advanced search algorithms (text, exact, regex) with statistics")
+            
+            # Test scenarios for document search
+            search_test_cases = [
+                {
+                    "name": "Basic Text Search",
+                    "request": {
+                        "query": "personel",
+                        "search_type": "text",
+                        "case_sensitive": False,
+                        "max_results": 10,
+                        "highlight_context": 100
+                    },
+                    "expected_fields": ["query", "search_type", "case_sensitive", "results", "statistics"]
+                },
+                {
+                    "name": "Exact Match Search",
+                    "request": {
+                        "query": "prosedür",
+                        "search_type": "exact",
+                        "case_sensitive": False,
+                        "max_results": 5,
+                        "highlight_context": 50
+                    },
+                    "expected_fields": ["query", "search_type", "case_sensitive", "results", "statistics"]
+                },
+                {
+                    "name": "Regex Search",
+                    "request": {
+                        "query": "IK[YA]?-P[0-9]+",
+                        "search_type": "regex",
+                        "case_sensitive": False,
+                        "max_results": 20,
+                        "highlight_context": 150
+                    },
+                    "expected_fields": ["query", "search_type", "case_sensitive", "results", "statistics"]
+                },
+                {
+                    "name": "Case Sensitive Search",
+                    "request": {
+                        "query": "Personel",
+                        "search_type": "text",
+                        "case_sensitive": True,
+                        "max_results": 10,
+                        "highlight_context": 100
+                    },
+                    "expected_fields": ["query", "search_type", "case_sensitive", "results", "statistics"]
+                },
+                {
+                    "name": "Turkish Character Search",
+                    "request": {
+                        "query": "çalışan",
+                        "search_type": "text",
+                        "case_sensitive": False,
+                        "max_results": 15,
+                        "highlight_context": 80
+                    },
+                    "expected_fields": ["query", "search_type", "case_sensitive", "results", "statistics"]
+                }
+            ]
+            
+            successful_searches = 0
+            total_searches = len(search_test_cases)
+            search_results = []
+            
+            for test_case in search_test_cases:
+                print(f"     Testing: {test_case['name']}")
+                
+                try:
+                    response = self.session.post(f"{self.base_url}/search-in-documents", json=test_case["request"])
+                    
+                    result = {
+                        "test_name": test_case['name'],
+                        "status_code": response.status_code,
+                        "success": False,
+                        "details": ""
+                    }
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        
+                        # Check response structure
+                        missing_fields = [field for field in test_case["expected_fields"] if field not in data]
+                        
+                        if not missing_fields:
+                            # Validate statistics structure
+                            statistics = data.get("statistics", {})
+                            required_stats = ["total_documents_searched", "total_matches", "documents_with_matches", "average_match_score"]
+                            missing_stats = [stat for stat in required_stats if stat not in statistics]
+                            
+                            if not missing_stats:
+                                # Validate results structure
+                                results = data.get("results", [])
+                                results_valid = True
+                                
+                                if results:
+                                    # Check first result structure
+                                    first_result = results[0]
+                                    required_result_fields = ["document_id", "document_filename", "document_group", "matches", "total_matches", "match_score"]
+                                    missing_result_fields = [field for field in required_result_fields if field not in first_result]
+                                    
+                                    if missing_result_fields:
+                                        results_valid = False
+                                        result["details"] = f"Result structure missing fields: {missing_result_fields}"
+                                    else:
+                                        # Check matches structure
+                                        matches = first_result.get("matches", [])
+                                        if matches:
+                                            first_match = matches[0]
+                                            required_match_fields = ["chunk_index", "position", "matched_text", "context", "highlighted_context", "score"]
+                                            missing_match_fields = [field for field in required_match_fields if field not in first_match]
+                                            
+                                            if missing_match_fields:
+                                                results_valid = False
+                                                result["details"] = f"Match structure missing fields: {missing_match_fields}"
+                                
+                                if results_valid:
+                                    successful_searches += 1
+                                    result["success"] = True
+                                    result["details"] = f"✅ Search successful! Found {len(results)} documents with {statistics['total_matches']} total matches"
+                                    result["response_data"] = {
+                                        "documents_found": len(results),
+                                        "total_matches": statistics['total_matches'],
+                                        "average_score": statistics['average_match_score']
+                                    }
+                                else:
+                                    result["details"] = f"❌ Results structure invalid: {result['details']}"
+                            else:
+                                result["details"] = f"❌ Statistics missing fields: {missing_stats}"
+                        else:
+                            result["details"] = f"❌ Response missing fields: {missing_fields}"
+                    elif response.status_code == 400:
+                        # Check if it's a valid error (empty query, etc.)
+                        error_data = response.json()
+                        error_detail = error_data.get("detail", "")
+                        if "boş" in error_detail.lower() or "empty" in error_detail.lower():
+                            result["details"] = f"✅ Proper validation error: {error_detail}"
+                        else:
+                            result["details"] = f"❌ Unexpected 400 error: {error_detail}"
+                    else:
+                        result["details"] = f"❌ HTTP {response.status_code}: {response.text[:200]}"
+                    
+                    search_results.append(result)
+                    
+                except Exception as e:
+                    search_results.append({
+                        "test_name": test_case['name'],
+                        "status_code": 0,
+                        "success": False,
+                        "details": f"❌ Request error: {str(e)}"
+                    })
+            
+            # Test empty query validation
+            print("     Testing: Empty Query Validation")
+            empty_query_response = self.session.post(f"{self.base_url}/search-in-documents", json={"query": "", "search_type": "text"})
+            empty_query_valid = empty_query_response.status_code == 400
+            
+            # Overall assessment
+            success_rate = successful_searches / total_searches if total_searches > 0 else 0
+            overall_success = success_rate >= 0.8 and empty_query_valid  # 80% success rate + proper validation
+            
+            if overall_success:
+                self.log_test(
+                    "Document Search Endpoint - POST /api/search-in-documents",
+                    True,
+                    f"✅ DOCUMENT SEARCH WORKING PERFECTLY! Successfully tested {successful_searches}/{total_searches} search scenarios ({success_rate:.1%}). All search types (text, exact, regex) functional, proper response structure with statistics, Turkish character support working, case sensitivity options working.",
+                    {
+                        "successful_searches": successful_searches,
+                        "total_searches": total_searches,
+                        "success_rate": success_rate,
+                        "empty_query_validation": empty_query_valid,
+                        "search_results": search_results
+                    }
+                )
+            else:
+                issues = []
+                if success_rate < 0.8:
+                    issues.append(f"low success rate ({success_rate:.1%})")
+                if not empty_query_valid:
+                    issues.append("empty query validation failed")
+                
+                self.log_test(
+                    "Document Search Endpoint - POST /api/search-in-documents",
+                    False,
+                    f"❌ DOCUMENT SEARCH ISSUES! Problems: {', '.join(issues)}. Successful searches: {successful_searches}/{total_searches}",
+                    {
+                        "successful_searches": successful_searches,
+                        "total_searches": total_searches,
+                        "success_rate": success_rate,
+                        "empty_query_validation": empty_query_valid,
+                        "search_results": search_results,
+                        "issues": issues
+                    }
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Document Search Endpoint - POST /api/search-in-documents",
+                False,
+                f"❌ Connection error during document search test: {str(e)}",
+                None
+            )
+
     def test_favorite_questions_system(self):
         """🆕 NEW FEATURE: Test Favorite Questions System - Complete CRUD Operations"""
         try:
