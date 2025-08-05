@@ -32,6 +32,14 @@ function App() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   
+  // Favori sorular için yeni state'ler
+  const [favoriteQuestions, setFavoriteQuestions] = useState([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [favoriteCategories, setFavoriteCategories] = useState([]);
+  const [favoriteTags, setFavoriteTags] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedTag, setSelectedTag] = useState('all');
+  
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
