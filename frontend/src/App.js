@@ -1841,6 +1841,27 @@ function App() {
               )}
             </div>
           </div>
+        ) : activeTab === 'search' ? (
+          /* Search Tab */
+          <SearchTab
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchType={searchType}
+            setSearchType={setSearchType}
+            caseSensitive={caseSensitive}
+            setCaseSensitive={setCaseSensitive}
+            searchResults={searchResults}
+            searchStatistics={searchStatistics}
+            loadingSearch={loadingSearch}
+            searchSuggestions={searchSuggestions}
+            showSearchSuggestions={showSearchSuggestions}
+            setShowSearchSuggestions={setShowSearchSuggestions}
+            performDocumentSearch={performDocumentSearch}
+            handleSearchQueryChange={handleSearchQueryChange}
+            handleSearchSuggestionSelect={handleSearchSuggestionSelect}
+            hideSearchSuggestions={hideSearchSuggestions}
+            downloadOriginalDocument={downloadOriginalDocument}
+          />
         ) : (
           /* Documents Tab */
           <div className="space-y-6">
