@@ -1553,7 +1553,7 @@ async def get_faq_items(category: Optional[str] = None, active_only: bool = True
             filter_query["is_active"] = True
         
         # FAQ'ları getir (frekansa göre sıralı)
-        faq_items = await db.faq_items.find(filter_query).sort("frequency", -1).limit(limit).to_list(limit)
+        faq_items = await db.faq_items.find(filter_query, {"_id": 0}).sort("frequency", -1).limit(limit).to_list(limit)
         
         # İstatistikler
         total_faqs = await db.faq_items.count_documents({})
