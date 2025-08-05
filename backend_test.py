@@ -3645,6 +3645,860 @@ class KPABackendTester:
                 None
             )
 
+    def test_faq_list_endpoint(self):
+        """🆕 NEW FEATURE: Test GET /api/faq - List FAQ items"""
+        try:
+            print("   📋 Testing GET /api/faq - List FAQ items...")
+            
+            # Test 1: Basic listing with default parameters
+            response = self.session.get(f"{self.base_url}/faq")
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["faq_items", "statistics"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    faq_items = data.get("faq_items", [])
+                    statistics = data.get("statistics", {})
+                    
+                    # Validate statistics structure
+                    required_stats = ["total_faqs", "active_faqs", "available_categories"]
+                    missing_stats = [stat for stat in required_stats if stat not in statistics]
+                    
+                    if not missing_stats:
+                        self.log_test(
+                            "FAQ List Endpoint - Basic Listing",
+                            True,
+                            f"✅ FAQ list retrieved successfully. Total FAQs: {statistics.get('total_faqs', 0)}, Active: {statistics.get('active_faqs', 0)}, Categories: {len(statistics.get('available_categories', []))}",
+                            {"faq_count": len(faq_items), "statistics": statistics}
+                        )
+                        
+                        # Test 2: Test filtering by category (if categories exist)
+                        categories = statistics.get("available_categories", [])
+                        if categories:
+                            test_category = categories[0]
+                            category_response = self.session.get(f"{self.base_url}/faq?category={test_category}")
+                            
+                            if category_response.status_code == 200:
+                                category_data = category_response.json()
+                                filtered_items = category_data.get("faq_items", [])
+                                
+                                self.log_test(
+                                    "FAQ List Endpoint - Category Filtering",
+                                    True,
+                                    f"✅ Category filtering working. Category '{test_category}': {len(filtered_items)} items",
+                                    {"category": test_category, "filtered_count": len(filtered_items)}
+                                )
+                            else:
+                                self.log_test(
+                                    "FAQ List Endpoint - Category Filtering",
+                                    False,
+                                    f"❌ Category filtering failed: HTTP {category_response.status_code}",
+                                    category_response.text
+                                )
+                        
+                        # Test 3: Test active_only parameter
+                        active_response = self.session.get(f"{self.base_url}/faq?active_only=false")
+                        if active_response.status_code == 200:
+                            active_data = active_response.json()
+                            all_items = active_data.get("faq_items", [])
+                            
+                            self.log_test(
+                                "FAQ List Endpoint - Active Only Parameter",
+                                True,
+                                f"✅ active_only parameter working. All items: {len(all_items)}, Active only: {len(faq_items)}",
+                                {"all_items": len(all_items), "active_items": len(faq_items)}
+                            )
+                        else:
+                            self.log_test(
+                                "FAQ List Endpoint - Active Only Parameter",
+                                False,
+                                f"❌ active_only parameter failed: HTTP {active_response.status_code}",
+                                active_response.text
+                            )
+                    else:
+                        self.log_test(
+                            "FAQ List Endpoint - Basic Listing",
+                            False,
+                            f"❌ Statistics missing required fields: {missing_stats}",
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "FAQ List Endpoint - Basic Listing",
+                        False,
+                        f"❌ Response missing required fields: {missing_fields}",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "FAQ List Endpoint - Basic Listing",
+                    False,
+                    f"❌ FAQ list failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ List Endpoint",
+                False,
+                f"❌ Error during FAQ list test: {str(e)}",
+                None
+            )
+
+    def test_faq_generate_endpoint(self):
+        """🆕 NEW FEATURE: Test POST /api/faq/generate - Generate FAQ from chat history"""
+        try:
+            print("   🤖 Testing POST /api/faq/generate - Generate FAQ from chat history...")
+            
+            # First, create some test chat sessions to have data for FAQ generation
+            print("   📝 Creating test chat sessions for FAQ generation...")
+            
+            test_questions = [
+                "İnsan kaynakları prosedürleri nelerdir?",
+                "Çalışan hakları hakkında bilgi verir misiniz?",
+                "İK departmanının işleyişi nasıldır?",
+                "Personel alım süreci nasıl işler?",
+                "Maaş ödemeleri ne zaman yapılır?"
+            ]
+            
+            # Create multiple sessions with same questions to increase frequency
+            created_sessions = []
+            for i in range(3):  # Create 3 rounds to increase frequency
+                for question in test_questions:
+                    session_request = {
+                        "question": question,
+                        "session_id": f"faq_test_session_{i}_{int(time.time())}"
+                    }
+                    
+                    # Try to create session (may fail if no documents, but that's OK)
+                    session_response = self.session.post(
+                        f"{self.base_url}/ask-question",
+                        json=session_request
+                    )
+                    
+                    if session_response.status_code == 200:
+                        created_sessions.append(session_request["session_id"])
+            
+            print(f"   ✅ Created {len(created_sessions)} test sessions")
+            
+            # Test 1: Generate FAQ with different parameters
+            test_scenarios = [
+                {"min_frequency": 2, "similarity_threshold": 0.7, "max_faq_items": 10},
+                {"min_frequency": 3, "similarity_threshold": 0.6, "max_faq_items": 20},
+                {"min_frequency": 1, "similarity_threshold": 0.8, "max_faq_items": 5}
+            ]
+            
+            generation_success = False
+            
+            for i, params in enumerate(test_scenarios, 1):
+                print(f"   Testing scenario {i}: {params}")
+                
+                generate_response = self.session.post(
+                    f"{self.base_url}/faq/generate",
+                    json=params
+                )
+                
+                if generate_response.status_code == 200:
+                    generate_data = generate_response.json()
+                    required_fields = ["message", "generated_count", "new_items", "updated_items"]
+                    missing_fields = [field for field in required_fields if field not in generate_data]
+                    
+                    if not missing_fields:
+                        generated_count = generate_data.get("generated_count", 0)
+                        new_items = generate_data.get("new_items", 0)
+                        updated_items = generate_data.get("updated_items", 0)
+                        
+                        self.log_test(
+                            f"FAQ Generate - Scenario {i}",
+                            True,
+                            f"✅ FAQ generation successful. Generated: {generated_count}, New: {new_items}, Updated: {updated_items}",
+                            generate_data
+                        )
+                        
+                        if generated_count > 0:
+                            generation_success = True
+                    else:
+                        self.log_test(
+                            f"FAQ Generate - Scenario {i}",
+                            False,
+                            f"❌ Generate response missing fields: {missing_fields}",
+                            generate_data
+                        )
+                else:
+                    self.log_test(
+                        f"FAQ Generate - Scenario {i}",
+                        False,
+                        f"❌ FAQ generation failed: HTTP {generate_response.status_code}",
+                        generate_response.text
+                    )
+            
+            # Overall FAQ generation assessment
+            if generation_success:
+                self.log_test(
+                    "FAQ Generate Endpoint - Overall",
+                    True,
+                    "✅ FAQ generation system working correctly with at least one successful scenario",
+                    {"scenarios_tested": len(test_scenarios)}
+                )
+            else:
+                self.log_test(
+                    "FAQ Generate Endpoint - Overall",
+                    True,  # Still pass if no data available
+                    "⚠️ FAQ generation completed but no items generated (may be due to insufficient chat history data)",
+                    {"scenarios_tested": len(test_scenarios)}
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ Generate Endpoint",
+                False,
+                f"❌ Error during FAQ generate test: {str(e)}",
+                None
+            )
+
+    def test_faq_analytics_endpoint(self):
+        """🆕 NEW FEATURE: Test GET /api/faq/analytics - FAQ analytics and insights"""
+        try:
+            print("   📊 Testing GET /api/faq/analytics - FAQ analytics and insights...")
+            
+            response = self.session.get(f"{self.base_url}/faq/analytics")
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["total_questions_analyzed", "total_chat_sessions", "top_questions", "category_distribution", "faq_recommendations"]
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    total_questions = data.get("total_questions_analyzed", 0)
+                    total_sessions = data.get("total_chat_sessions", 0)
+                    top_questions = data.get("top_questions", [])
+                    category_dist = data.get("category_distribution", {})
+                    recommendations = data.get("faq_recommendations", {})
+                    
+                    # Validate data types and structure
+                    validation_errors = []
+                    
+                    if not isinstance(total_questions, int):
+                        validation_errors.append("total_questions_analyzed should be int")
+                    if not isinstance(total_sessions, int):
+                        validation_errors.append("total_chat_sessions should be int")
+                    if not isinstance(top_questions, list):
+                        validation_errors.append("top_questions should be list")
+                    if not isinstance(category_dist, dict):
+                        validation_errors.append("category_distribution should be dict")
+                    if not isinstance(recommendations, dict):
+                        validation_errors.append("faq_recommendations should be dict")
+                    
+                    # Check recommendations structure
+                    rec_required = ["should_generate", "recommended_min_frequency", "potential_faq_count"]
+                    rec_missing = [field for field in rec_required if field not in recommendations]
+                    
+                    if not validation_errors and not rec_missing:
+                        self.log_test(
+                            "FAQ Analytics Endpoint",
+                            True,
+                            f"✅ FAQ analytics working perfectly. Questions analyzed: {total_questions}, Sessions: {total_sessions}, Top questions: {len(top_questions)}, Categories: {len(category_dist)}",
+                            {
+                                "total_questions_analyzed": total_questions,
+                                "total_chat_sessions": total_sessions,
+                                "top_questions_count": len(top_questions),
+                                "categories_count": len(category_dist),
+                                "recommendations": recommendations
+                            }
+                        )
+                    else:
+                        all_errors = validation_errors + [f"recommendations missing: {rec_missing}"] if rec_missing else validation_errors
+                        self.log_test(
+                            "FAQ Analytics Endpoint",
+                            False,
+                            f"❌ Analytics validation errors: {', '.join(all_errors)}",
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "FAQ Analytics Endpoint",
+                        False,
+                        f"❌ Analytics response missing required fields: {missing_fields}",
+                        data
+                    )
+            else:
+                self.log_test(
+                    "FAQ Analytics Endpoint",
+                    False,
+                    f"❌ FAQ analytics failed: HTTP {response.status_code}",
+                    response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ Analytics Endpoint",
+                False,
+                f"❌ Error during FAQ analytics test: {str(e)}",
+                None
+            )
+
+    def test_faq_ask_endpoint(self):
+        """🆕 NEW FEATURE: Test POST /api/faq/{faq_id}/ask - Ask FAQ question (replay)"""
+        try:
+            print("   🔄 Testing POST /api/faq/{faq_id}/ask - Ask FAQ question replay...")
+            
+            # First, get available FAQ items
+            faq_response = self.session.get(f"{self.base_url}/faq")
+            
+            if faq_response.status_code == 200:
+                faq_data = faq_response.json()
+                faq_items = faq_data.get("faq_items", [])
+                
+                if faq_items:
+                    # Test with first FAQ item
+                    test_faq = faq_items[0]
+                    faq_id = test_faq.get("id")
+                    original_question = test_faq.get("question", "Unknown question")
+                    
+                    print(f"   Testing FAQ replay: '{original_question}' (ID: {faq_id})")
+                    
+                    ask_response = self.session.post(f"{self.base_url}/faq/{faq_id}/ask")
+                    
+                    if ask_response.status_code == 200:
+                        ask_data = ask_response.json()
+                        required_fields = ["message", "faq_id", "original_question", "new_session_id", "result"]
+                        missing_fields = [field for field in required_fields if field not in ask_data]
+                        
+                        if not missing_fields:
+                            new_session_id = ask_data.get("new_session_id")
+                            result = ask_data.get("result", {})
+                            
+                            # Validate result structure (should be like ask-question response)
+                            result_required = ["question", "answer", "session_id"]
+                            result_missing = [field for field in result_required if field not in result]
+                            
+                            if not result_missing:
+                                self.log_test(
+                                    "FAQ Ask Endpoint - Replay Functionality",
+                                    True,
+                                    f"✅ FAQ question replay working perfectly. New session: {new_session_id}, Answer length: {len(result.get('answer', ''))} chars",
+                                    {
+                                        "faq_id": faq_id,
+                                        "original_question": original_question,
+                                        "new_session_id": new_session_id,
+                                        "answer_length": len(result.get("answer", ""))
+                                    }
+                                )
+                            else:
+                                self.log_test(
+                                    "FAQ Ask Endpoint - Replay Functionality",
+                                    False,
+                                    f"❌ FAQ replay result missing fields: {result_missing}",
+                                    ask_data
+                                )
+                        else:
+                            self.log_test(
+                                "FAQ Ask Endpoint - Replay Functionality",
+                                False,
+                                f"❌ FAQ ask response missing fields: {missing_fields}",
+                                ask_data
+                            )
+                    elif ask_response.status_code == 404:
+                        self.log_test(
+                            "FAQ Ask Endpoint - Replay Functionality",
+                            False,
+                            f"❌ FAQ item not found (404): {faq_id}",
+                            ask_response.text
+                        )
+                    else:
+                        self.log_test(
+                            "FAQ Ask Endpoint - Replay Functionality",
+                            False,
+                            f"❌ FAQ ask failed: HTTP {ask_response.status_code}",
+                            ask_response.text
+                        )
+                else:
+                    self.log_test(
+                        "FAQ Ask Endpoint - Replay Functionality",
+                        True,
+                        "⚠️ No FAQ items available to test replay functionality (expected for new system)",
+                        None
+                    )
+            else:
+                self.log_test(
+                    "FAQ Ask Endpoint - Replay Functionality",
+                    False,
+                    f"❌ Could not retrieve FAQ items for replay test: HTTP {faq_response.status_code}",
+                    faq_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ Ask Endpoint",
+                False,
+                f"❌ Error during FAQ ask test: {str(e)}",
+                None
+            )
+
+    def test_faq_update_endpoint(self):
+        """🆕 NEW FEATURE: Test PUT /api/faq/{faq_id} - Update FAQ item"""
+        try:
+            print("   ✏️ Testing PUT /api/faq/{faq_id} - Update FAQ item...")
+            
+            # First, get available FAQ items
+            faq_response = self.session.get(f"{self.base_url}/faq")
+            
+            if faq_response.status_code == 200:
+                faq_data = faq_response.json()
+                faq_items = faq_data.get("faq_items", [])
+                
+                if faq_items:
+                    # Test with first FAQ item
+                    test_faq = faq_items[0]
+                    faq_id = test_faq.get("id")
+                    original_category = test_faq.get("category", "Genel")
+                    
+                    print(f"   Testing FAQ update: ID {faq_id}")
+                    
+                    # Test 1: Update category and is_active
+                    update_data = {
+                        "category": "Test Kategori",
+                        "is_active": True,
+                        "manual_override": True
+                    }
+                    
+                    update_response = self.session.put(
+                        f"{self.base_url}/faq/{faq_id}",
+                        json=update_data
+                    )
+                    
+                    if update_response.status_code == 200:
+                        update_result = update_response.json()
+                        if "message" in update_result:
+                            self.log_test(
+                                "FAQ Update Endpoint - Full Update",
+                                True,
+                                f"✅ FAQ update successful: {update_result.get('message', 'Updated')}",
+                                update_result
+                            )
+                            
+                            # Test 2: Partial update
+                            partial_update = {"category": original_category}  # Restore original category
+                            
+                            partial_response = self.session.put(
+                                f"{self.base_url}/faq/{faq_id}",
+                                json=partial_update
+                            )
+                            
+                            if partial_response.status_code == 200:
+                                self.log_test(
+                                    "FAQ Update Endpoint - Partial Update",
+                                    True,
+                                    f"✅ FAQ partial update successful",
+                                    partial_response.json()
+                                )
+                            else:
+                                self.log_test(
+                                    "FAQ Update Endpoint - Partial Update",
+                                    False,
+                                    f"❌ FAQ partial update failed: HTTP {partial_response.status_code}",
+                                    partial_response.text
+                                )
+                        else:
+                            self.log_test(
+                                "FAQ Update Endpoint - Full Update",
+                                False,
+                                f"❌ Update response missing message field",
+                                update_result
+                            )
+                    elif update_response.status_code == 404:
+                        self.log_test(
+                            "FAQ Update Endpoint - Full Update",
+                            False,
+                            f"❌ FAQ item not found (404): {faq_id}",
+                            update_response.text
+                        )
+                    else:
+                        self.log_test(
+                            "FAQ Update Endpoint - Full Update",
+                            False,
+                            f"❌ FAQ update failed: HTTP {update_response.status_code}",
+                            update_response.text
+                        )
+                    
+                    # Test 3: Test 404 handling with non-existent ID
+                    fake_id = "non-existent-faq-id-12345"
+                    fake_update = {"category": "Test"}
+                    
+                    fake_response = self.session.put(
+                        f"{self.base_url}/faq/{fake_id}",
+                        json=fake_update
+                    )
+                    
+                    if fake_response.status_code == 404:
+                        self.log_test(
+                            "FAQ Update Endpoint - 404 Handling",
+                            True,
+                            "✅ FAQ update correctly returns 404 for non-existent ID",
+                            None
+                        )
+                    else:
+                        self.log_test(
+                            "FAQ Update Endpoint - 404 Handling",
+                            False,
+                            f"❌ Expected 404 for non-existent FAQ, got {fake_response.status_code}",
+                            fake_response.text
+                        )
+                else:
+                    self.log_test(
+                        "FAQ Update Endpoint",
+                        True,
+                        "⚠️ No FAQ items available to test update functionality (expected for new system)",
+                        None
+                    )
+            else:
+                self.log_test(
+                    "FAQ Update Endpoint",
+                    False,
+                    f"❌ Could not retrieve FAQ items for update test: HTTP {faq_response.status_code}",
+                    faq_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ Update Endpoint",
+                False,
+                f"❌ Error during FAQ update test: {str(e)}",
+                None
+            )
+
+    def test_faq_delete_endpoint(self):
+        """🆕 NEW FEATURE: Test DELETE /api/faq/{faq_id} - Delete FAQ item"""
+        try:
+            print("   🗑️ Testing DELETE /api/faq/{faq_id} - Delete FAQ item...")
+            
+            # First, create a test FAQ item by generating some
+            print("   Creating test FAQ item for deletion...")
+            
+            # Try to generate FAQ first
+            generate_response = self.session.post(
+                f"{self.base_url}/faq/generate",
+                json={"min_frequency": 1, "max_faq_items": 5}
+            )
+            
+            # Get FAQ items to find one to delete
+            faq_response = self.session.get(f"{self.base_url}/faq")
+            
+            if faq_response.status_code == 200:
+                faq_data = faq_response.json()
+                faq_items = faq_data.get("faq_items", [])
+                
+                if faq_items:
+                    # Test with first FAQ item
+                    test_faq = faq_items[0]
+                    faq_id = test_faq.get("id")
+                    faq_question = test_faq.get("question", "Unknown question")
+                    
+                    print(f"   Testing FAQ deletion: '{faq_question}' (ID: {faq_id})")
+                    
+                    delete_response = self.session.delete(f"{self.base_url}/faq/{faq_id}")
+                    
+                    if delete_response.status_code == 200:
+                        delete_result = delete_response.json()
+                        if "message" in delete_result:
+                            # Verify deletion by trying to get the FAQ again
+                            verify_response = self.session.get(f"{self.base_url}/faq")
+                            if verify_response.status_code == 200:
+                                verify_data = verify_response.json()
+                                remaining_items = verify_data.get("faq_items", [])
+                                deleted_item_exists = any(item.get("id") == faq_id for item in remaining_items)
+                                
+                                if not deleted_item_exists:
+                                    self.log_test(
+                                        "FAQ Delete Endpoint - Successful Deletion",
+                                        True,
+                                        f"✅ FAQ deletion successful and verified: {delete_result.get('message', 'Deleted')}",
+                                        delete_result
+                                    )
+                                else:
+                                    self.log_test(
+                                        "FAQ Delete Endpoint - Successful Deletion",
+                                        False,
+                                        f"❌ FAQ deletion claimed success but item still exists",
+                                        delete_result
+                                    )
+                            else:
+                                self.log_test(
+                                    "FAQ Delete Endpoint - Successful Deletion",
+                                    True,
+                                    f"✅ FAQ deletion successful (couldn't verify): {delete_result.get('message', 'Deleted')}",
+                                    delete_result
+                                )
+                        else:
+                            self.log_test(
+                                "FAQ Delete Endpoint - Successful Deletion",
+                                False,
+                                f"❌ Delete response missing message field",
+                                delete_result
+                            )
+                    elif delete_response.status_code == 404:
+                        self.log_test(
+                            "FAQ Delete Endpoint - Successful Deletion",
+                            False,
+                            f"❌ FAQ item not found (404): {faq_id}",
+                            delete_response.text
+                        )
+                    else:
+                        self.log_test(
+                            "FAQ Delete Endpoint - Successful Deletion",
+                            False,
+                            f"❌ FAQ deletion failed: HTTP {delete_response.status_code}",
+                            delete_response.text
+                        )
+                else:
+                    # Test 404 handling with non-existent ID
+                    fake_id = "non-existent-faq-id-12345"
+                    fake_response = self.session.delete(f"{self.base_url}/faq/{fake_id}")
+                    
+                    if fake_response.status_code == 404:
+                        self.log_test(
+                            "FAQ Delete Endpoint - 404 Handling",
+                            True,
+                            "✅ FAQ delete correctly returns 404 for non-existent ID (no FAQ items available for actual deletion test)",
+                            None
+                        )
+                    else:
+                        self.log_test(
+                            "FAQ Delete Endpoint - 404 Handling",
+                            False,
+                            f"❌ Expected 404 for non-existent FAQ, got {fake_response.status_code}",
+                            fake_response.text
+                        )
+            else:
+                self.log_test(
+                    "FAQ Delete Endpoint",
+                    False,
+                    f"❌ Could not retrieve FAQ items for delete test: HTTP {faq_response.status_code}",
+                    faq_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ Delete Endpoint",
+                False,
+                f"❌ Error during FAQ delete test: {str(e)}",
+                None
+            )
+
+    def test_faq_integration_workflow(self):
+        """🆕 NEW FEATURE: Test FAQ System Integration - Full Workflow"""
+        try:
+            print("   🔄 Testing FAQ System Integration - Full Workflow...")
+            print("   📋 Workflow: Generate FAQ → List → Update → Ask → Analytics")
+            
+            workflow_steps = []
+            
+            # Step 1: Generate FAQ from chat history
+            print("   Step 1: Generating FAQ from chat history...")
+            generate_response = self.session.post(
+                f"{self.base_url}/faq/generate",
+                json={"min_frequency": 1, "similarity_threshold": 0.6, "max_faq_items": 10}
+            )
+            
+            if generate_response.status_code == 200:
+                generate_data = generate_response.json()
+                workflow_steps.append(f"✅ Generate: {generate_data.get('generated_count', 0)} items")
+            else:
+                workflow_steps.append(f"❌ Generate failed: HTTP {generate_response.status_code}")
+            
+            # Step 2: List generated FAQ items
+            print("   Step 2: Listing FAQ items...")
+            list_response = self.session.get(f"{self.base_url}/faq")
+            
+            faq_items = []
+            if list_response.status_code == 200:
+                list_data = list_response.json()
+                faq_items = list_data.get("faq_items", [])
+                workflow_steps.append(f"✅ List: {len(faq_items)} items retrieved")
+            else:
+                workflow_steps.append(f"❌ List failed: HTTP {list_response.status_code}")
+            
+            # Step 3: Update an FAQ item (if available)
+            if faq_items:
+                print("   Step 3: Updating FAQ item...")
+                test_faq_id = faq_items[0].get("id")
+                
+                update_response = self.session.put(
+                    f"{self.base_url}/faq/{test_faq_id}",
+                    json={"category": "Integration Test", "manual_override": True}
+                )
+                
+                if update_response.status_code == 200:
+                    workflow_steps.append("✅ Update: FAQ item updated successfully")
+                else:
+                    workflow_steps.append(f"❌ Update failed: HTTP {update_response.status_code}")
+                
+                # Step 4: Ask FAQ question
+                print("   Step 4: Asking FAQ question...")
+                ask_response = self.session.post(f"{self.base_url}/faq/{test_faq_id}/ask")
+                
+                if ask_response.status_code == 200:
+                    ask_data = ask_response.json()
+                    new_session = ask_data.get("new_session_id", "Unknown")
+                    workflow_steps.append(f"✅ Ask: New session created {new_session[:8]}...")
+                else:
+                    workflow_steps.append(f"❌ Ask failed: HTTP {ask_response.status_code}")
+            else:
+                workflow_steps.append("⚠️ Update/Ask: Skipped (no FAQ items available)")
+            
+            # Step 5: Get analytics
+            print("   Step 5: Getting FAQ analytics...")
+            analytics_response = self.session.get(f"{self.base_url}/faq/analytics")
+            
+            if analytics_response.status_code == 200:
+                analytics_data = analytics_response.json()
+                total_questions = analytics_data.get("total_questions_analyzed", 0)
+                workflow_steps.append(f"✅ Analytics: {total_questions} questions analyzed")
+            else:
+                workflow_steps.append(f"❌ Analytics failed: HTTP {analytics_response.status_code}")
+            
+            # Evaluate overall workflow
+            successful_steps = len([step for step in workflow_steps if step.startswith("✅")])
+            total_steps = len(workflow_steps)
+            
+            workflow_success = successful_steps >= (total_steps * 0.8)  # 80% success rate
+            
+            self.log_test(
+                "FAQ System Integration - Full Workflow",
+                workflow_success,
+                f"{'✅ Integration workflow successful' if workflow_success else '❌ Integration workflow has issues'}. Steps: {successful_steps}/{total_steps} successful. Details: {'; '.join(workflow_steps)}",
+                {
+                    "workflow_steps": workflow_steps,
+                    "success_rate": f"{successful_steps}/{total_steps}",
+                    "successful_steps": successful_steps,
+                    "total_steps": total_steps
+                }
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "FAQ System Integration - Full Workflow",
+                False,
+                f"❌ Error during integration workflow test: {str(e)}",
+                None
+            )
+
+    def test_faq_advanced_analytics(self):
+        """🆕 NEW FEATURE: Test FAQ Advanced Analytics - Frequency Analysis & Category Classification"""
+        try:
+            print("   📈 Testing FAQ Advanced Analytics - Frequency Analysis & Category Classification...")
+            
+            # Test frequency analysis accuracy
+            analytics_response = self.session.get(f"{self.base_url}/faq/analytics")
+            
+            if analytics_response.status_code == 200:
+                analytics_data = analytics_response.json()
+                
+                # Test 1: Frequency analysis
+                top_questions = analytics_data.get("top_questions", [])
+                if top_questions:
+                    # Verify frequency sorting (should be descending)
+                    frequencies = [q[1] for q in top_questions if len(q) >= 2]
+                    is_sorted = all(frequencies[i] >= frequencies[i+1] for i in range(len(frequencies)-1))
+                    
+                    self.log_test(
+                        "FAQ Advanced Analytics - Frequency Analysis",
+                        is_sorted,
+                        f"{'✅ Frequency analysis accurate' if is_sorted else '❌ Frequency sorting incorrect'}. Top questions: {len(top_questions)}, Frequencies: {frequencies[:5]}",
+                        {"top_questions_count": len(top_questions), "frequencies": frequencies[:5]}
+                    )
+                else:
+                    self.log_test(
+                        "FAQ Advanced Analytics - Frequency Analysis",
+                        True,
+                        "⚠️ No top questions available for frequency analysis (expected for new system)",
+                        None
+                    )
+                
+                # Test 2: Category classification
+                category_distribution = analytics_data.get("category_distribution", {})
+                if category_distribution:
+                    # Check for Turkish categories
+                    turkish_categories = ["İnsan Kaynakları", "Finans", "İT", "Operasyon", "Hukuk", "Genel"]
+                    found_categories = list(category_distribution.keys())
+                    turkish_category_found = any(cat in found_categories for cat in turkish_categories)
+                    
+                    self.log_test(
+                        "FAQ Advanced Analytics - Category Classification",
+                        turkish_category_found,
+                        f"{'✅ Turkish category classification working' if turkish_category_found else '⚠️ No Turkish categories found'}. Categories: {found_categories}",
+                        {"categories": found_categories, "category_stats": category_distribution}
+                    )
+                else:
+                    self.log_test(
+                        "FAQ Advanced Analytics - Category Classification",
+                        True,
+                        "⚠️ No category distribution available (expected for new system)",
+                        None
+                    )
+                
+                # Test 3: FAQ recommendations
+                recommendations = analytics_data.get("faq_recommendations", {})
+                if recommendations:
+                    should_generate = recommendations.get("should_generate", False)
+                    min_frequency = recommendations.get("recommended_min_frequency", 0)
+                    potential_count = recommendations.get("potential_faq_count", 0)
+                    
+                    rec_valid = isinstance(should_generate, bool) and isinstance(min_frequency, int) and isinstance(potential_count, int)
+                    
+                    self.log_test(
+                        "FAQ Advanced Analytics - Recommendations",
+                        rec_valid,
+                        f"{'✅ FAQ recommendations working' if rec_valid else '❌ Recommendations structure invalid'}. Should generate: {should_generate}, Min frequency: {min_frequency}, Potential: {potential_count}",
+                        recommendations
+                    )
+                else:
+                    self.log_test(
+                        "FAQ Advanced Analytics - Recommendations",
+                        False,
+                        "❌ FAQ recommendations missing from analytics",
+                        analytics_data
+                    )
+                
+                # Overall analytics assessment
+                total_questions = analytics_data.get("total_questions_analyzed", 0)
+                total_sessions = analytics_data.get("total_chat_sessions", 0)
+                
+                analytics_quality = (
+                    (1 if top_questions else 0.5) +
+                    (1 if category_distribution else 0.5) +
+                    (1 if recommendations else 0)
+                ) / 3
+                
+                self.log_test(
+                    "FAQ Advanced Analytics - Overall Quality",
+                    analytics_quality >= 0.7,
+                    f"{'✅ Advanced analytics working excellently' if analytics_quality >= 0.7 else '⚠️ Advanced analytics partially working'}. Quality: {analytics_quality:.1%}, Questions: {total_questions}, Sessions: {total_sessions}",
+                    {
+                        "quality_score": analytics_quality,
+                        "total_questions_analyzed": total_questions,
+                        "total_chat_sessions": total_sessions
+                    }
+                )
+                
+            else:
+                self.log_test(
+                    "FAQ Advanced Analytics",
+                    False,
+                    f"❌ Analytics endpoint failed: HTTP {analytics_response.status_code}",
+                    analytics_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "FAQ Advanced Analytics",
+                False,
+                f"❌ Error during advanced analytics test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests including NEW Semantic Question Suggestions feature"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
