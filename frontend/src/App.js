@@ -48,6 +48,16 @@ function App() {
   const [faqAnalytics, setFaqAnalytics] = useState(null);
   const [generatingFaq, setGeneratingFaq] = useState(false);
   
+  // Doküman arama için yeni state'ler
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [searchType, setSearchType] = useState('text'); // text, regex, exact
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [searchStatistics, setSearchStatistics] = useState(null);
+  
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
