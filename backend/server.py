@@ -761,34 +761,100 @@ async def convert_docx_to_pdf(docx_content: bytes, filename: str) -> bytes:
                     tmp_docx.write(docx_content)
                     tmp_docx.flush()
                     
-                    # python-docx ile oku
-                    try:
-                        from docx import Document as DocxDocument
-                        docx_doc = DocxDocument(tmp_docx.name)
-                        
-                        paragraph_count = 0
-                        for paragraph in docx_doc.paragraphs:
-                            if paragraph.text.strip():
-                                # HTML karakterlerini escape et
-                                text = paragraph.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                                p = Paragraph(text, normal_style)
-                                story.append(p)
-                                story.append(Spacer(1, 6))
-                                paragraph_count += 1
-                        
-                        if paragraph_count == 0:
-                            # Eğer hiç paragraf yoksa, raw content'i göster
-                            story.append(Paragraph("Doküman içeriği metin formatında görüntülenemiyor.", normal_style))
-                        
-                    except Exception as docx_parse_error:
-                        logging.error(f"DOCX parsing error: {str(docx_parse_error)}")
-                        # DOCX parse edilemezse temel bilgi göster
-                        error_text = f"Doküman parse edilemedi: {str(docx_parse_error)}"
-                        story.append(Paragraph(error_text, normal_style))
-                        story.append(Spacer(1, 12))
-                        story.append(Paragraph("Doküman mevcut ancak içeriği görüntülenemiyor.", normal_style))
+                    # Dosya uzantısına göre farklı parser kullan
+                    file_extension = os.path.splitext(filename.lower())[1]
+                    parsed_content = ""
+                    paragraph_count = 0
                     
-                    # Geçici DOCX dosyasını sil
+                    if file_extension == '.docx':
+                        # DOCX için python-docx kullan
+                        try:
+                            from docx import Document as DocxDocument
+                            docx_doc = DocxDocument(tmp_docx.name)
+                            
+                            for paragraph in docx_doc.paragraphs:
+                                if paragraph.text.strip():
+                                    text = paragraph.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                    p = Paragraph(text, normal_style)
+                                    story.append(p)
+                                    story.append(Spacer(1, 6))
+                                    paragraph_count += 1
+                                    
+                        except Exception as docx_parse_error:
+                            logging.error(f"DOCX parsing error: {str(docx_parse_error)}")
+                            parsed_content = f"DOCX parsing hatası: {str(docx_parse_error)}"
+                    
+                    elif file_extension == '.doc':
+                        # DOC için textract veya antiword kullan
+                        try:
+                            # DOC dosyasını geçici olarak kaydet
+                            doc_tmp_path = tmp_docx.name.replace('.docx', '.doc')
+                            os.rename(tmp_docx.name, doc_tmp_path)
+                            
+                            # textract ile dene
+                            try:
+                                import textract
+                                extracted_text = textract.process(doc_tmp_path)
+                                if isinstance(extracted_text, bytes):
+                                    extracted_text = extracted_text.decode('utf-8', errors='ignore')
+                                
+                                # Metni paragraflara böl
+                                paragraphs = extracted_text.split('\n')
+                                for para in paragraphs:
+                                    if para.strip():
+                                        text = para.strip().replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                        p = Paragraph(text, normal_style)
+                                        story.append(p)
+                                        story.append(Spacer(1, 6))
+                                        paragraph_count += 1
+                                        
+                            except Exception as textract_error:
+                                logging.error(f"Textract error: {str(textract_error)}")
+                                # textract başarısızsa antiword dene
+                                try:
+                                    import subprocess
+                                    result = subprocess.run(['antiword', doc_tmp_path], 
+                                                          capture_output=True, text=True, timeout=30)
+                                    if result.returncode == 0:
+                                        extracted_text = result.stdout
+                                        paragraphs = extracted_text.split('\n')
+                                        for para in paragraphs:
+                                            if para.strip():
+                                                text = para.strip().replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                                p = Paragraph(text, normal_style)
+                                                story.append(p)
+                                                story.append(Spacer(1, 6))
+                                                paragraph_count += 1
+                                    else:
+                                        parsed_content = f"Antiword hatası: {result.stderr}"
+                                except Exception as antiword_error:
+                                    logging.error(f"Antiword error: {str(antiword_error)}")
+                                    parsed_content = f"DOC parsing hatası: textract ve antiword başarısız"
+                            
+                            # Geçici DOC dosyasını sil
+                            try:
+                                os.unlink(doc_tmp_path)
+                            except:
+                                pass
+                                
+                        except Exception as doc_error:
+                            logging.error(f"DOC processing error: {str(doc_error)}")
+                            parsed_content = f"DOC işleme hatası: {str(doc_error)}"
+                    
+                    else:
+                        # Desteklenmeyen format
+                        parsed_content = f"Desteklenmeyen dosya formatı: {file_extension}"
+                    
+                    # Eğer hiçbir içerik parse edilemezse
+                    if paragraph_count == 0:
+                        if parsed_content:
+                            story.append(Paragraph(parsed_content, normal_style))
+                        else:
+                            story.append(Paragraph("Doküman içeriği okumaya çalışıldı ancak metin çıkarılamadı.", normal_style))
+                            story.append(Spacer(1, 12))
+                            story.append(Paragraph("Bu durumda doküman mevcut ancak içeriği PDF formatında görüntülenemiyor.", normal_style))
+                    
+                    # Geçici dosyayı sil
                     try:
                         os.unlink(tmp_docx.name)
                     except:
