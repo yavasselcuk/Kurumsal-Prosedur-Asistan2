@@ -1901,7 +1901,8 @@ async def move_documents(request: DocumentMoveRequest, current_user: dict = Depe
 async def upload_document(
     background_tasks: BackgroundTasks, 
     file: UploadFile = File(...),
-    group_id: Optional[str] = None
+    group_id: Optional[str] = None,
+    current_user: dict = Depends(require_editor_or_admin)
 ):
     """Word dokümanı yükleme (.doc ve .docx desteği + gruplandırma)"""
     try:
