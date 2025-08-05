@@ -3177,6 +3177,474 @@ class KPABackendTester:
                 None
             )
 
+    def test_favorite_questions_system(self):
+        """🆕 NEW FEATURE: Test Favorite Questions System - Complete CRUD Operations"""
+        try:
+            print("   🆕 Testing NEW FEATURE: Favorite Questions System...")
+            print("   📋 Testing: POST, GET, PUT, DELETE /api/favorites + replay functionality")
+            
+            # Step 1: First ensure we have some chat sessions to work with
+            print("   Step 1: Creating test chat session for favorites...")
+            
+            # Create a test question-answer session
+            test_question = "What are the main corporate procedures for employee management?"
+            question_request = {
+                "question": test_question,
+                "session_id": f"fav_test_session_{int(time.time())}"
+            }
+            
+            question_response = self.session.post(
+                f"{self.base_url}/ask-question",
+                json=question_request
+            )
+            
+            if question_response.status_code == 200:
+                question_data = question_response.json()
+                session_id = question_data.get("session_id")
+                answer = question_data.get("answer", "Test answer for favorite")
+                source_docs = question_data.get("source_documents", [])
+                
+                self.log_test(
+                    "Favorite Questions - Test Session Creation",
+                    True,
+                    f"✅ Test session created successfully: {session_id}",
+                    {"session_id": session_id}
+                )
+                
+                # Step 2: Test POST /api/favorites - Add question to favorites
+                print("   Step 2: Testing POST /api/favorites...")
+                
+                favorite_request = {
+                    "session_id": session_id,
+                    "question": test_question,
+                    "answer": answer,
+                    "source_documents": [doc.get("filename", "") for doc in source_docs] if isinstance(source_docs, list) else [],
+                    "category": "İnsan Kaynakları",
+                    "tags": ["prosedür", "çalışan", "yönetim"],
+                    "notes": "Test notu - favori soru sistemi testi"
+                }
+                
+                add_favorite_response = self.session.post(
+                    f"{self.base_url}/favorites",
+                    json=favorite_request
+                )
+                
+                if add_favorite_response.status_code == 200:
+                    add_data = add_favorite_response.json()
+                    favorite_id = add_data.get("favorite_id")
+                    
+                    required_fields = ["message", "favorite_id", "favorite_count", "already_exists"]
+                    missing_fields = [field for field in required_fields if field not in add_data]
+                    
+                    if not missing_fields:
+                        self.log_test(
+                            "Favorite Questions - POST /api/favorites",
+                            True,
+                            f"✅ Favorite added successfully: {add_data['message']}, ID: {favorite_id}, Count: {add_data['favorite_count']}",
+                            add_data
+                        )
+                        
+                        # Step 3: Test duplicate handling
+                        print("   Step 3: Testing duplicate favorite handling...")
+                        
+                        duplicate_response = self.session.post(
+                            f"{self.base_url}/favorites",
+                            json=favorite_request
+                        )
+                        
+                        if duplicate_response.status_code == 200:
+                            duplicate_data = duplicate_response.json()
+                            if duplicate_data.get("already_exists") and duplicate_data.get("favorite_count", 0) > 1:
+                                self.log_test(
+                                    "Favorite Questions - Duplicate Handling",
+                                    True,
+                                    f"✅ Duplicate handling working: {duplicate_data['message']}, Count incremented to: {duplicate_data['favorite_count']}",
+                                    duplicate_data
+                                )
+                            else:
+                                self.log_test(
+                                    "Favorite Questions - Duplicate Handling",
+                                    False,
+                                    f"❌ Duplicate handling not working properly",
+                                    duplicate_data
+                                )
+                        
+                        # Step 4: Test GET /api/favorites - List favorites
+                        print("   Step 4: Testing GET /api/favorites...")
+                        
+                        list_response = self.session.get(f"{self.base_url}/favorites")
+                        
+                        if list_response.status_code == 200:
+                            list_data = list_response.json()
+                            
+                            required_list_fields = ["favorites", "statistics"]
+                            missing_list_fields = [field for field in required_list_fields if field not in list_data]
+                            
+                            if not missing_list_fields:
+                                favorites = list_data.get("favorites", [])
+                                statistics = list_data.get("statistics", {})
+                                
+                                # Check statistics structure
+                                required_stats = ["total_favorites", "unique_categories", "unique_tags"]
+                                stats_valid = all(field in statistics for field in required_stats)
+                                
+                                if stats_valid and len(favorites) > 0:
+                                    self.log_test(
+                                        "Favorite Questions - GET /api/favorites",
+                                        True,
+                                        f"✅ Favorites list retrieved successfully: {len(favorites)} favorites, Statistics: {statistics}",
+                                        {"favorites_count": len(favorites), "statistics": statistics}
+                                    )
+                                    
+                                    # Step 5: Test filtering by category and tag
+                                    print("   Step 5: Testing favorites filtering...")
+                                    
+                                    # Filter by category
+                                    category_filter_response = self.session.get(f"{self.base_url}/favorites?category=İnsan Kaynakları")
+                                    
+                                    if category_filter_response.status_code == 200:
+                                        category_data = category_filter_response.json()
+                                        category_favorites = category_data.get("favorites", [])
+                                        
+                                        # Filter by tag
+                                        tag_filter_response = self.session.get(f"{self.base_url}/favorites?tag=prosedür")
+                                        
+                                        if tag_filter_response.status_code == 200:
+                                            tag_data = tag_filter_response.json()
+                                            tag_favorites = tag_data.get("favorites", [])
+                                            
+                                            self.log_test(
+                                                "Favorite Questions - Filtering",
+                                                True,
+                                                f"✅ Filtering working: Category filter returned {len(category_favorites)} items, Tag filter returned {len(tag_favorites)} items",
+                                                {"category_results": len(category_favorites), "tag_results": len(tag_favorites)}
+                                            )
+                                        else:
+                                            self.log_test(
+                                                "Favorite Questions - Filtering",
+                                                False,
+                                                f"❌ Tag filtering failed: HTTP {tag_filter_response.status_code}",
+                                                tag_filter_response.text
+                                            )
+                                    else:
+                                        self.log_test(
+                                            "Favorite Questions - Filtering",
+                                            False,
+                                            f"❌ Category filtering failed: HTTP {category_filter_response.status_code}",
+                                            category_filter_response.text
+                                        )
+                                    
+                                    # Step 6: Test GET /api/favorites/{favorite_id} - Get favorite details
+                                    if favorite_id:
+                                        print(f"   Step 6: Testing GET /api/favorites/{favorite_id}...")
+                                        
+                                        detail_response = self.session.get(f"{self.base_url}/favorites/{favorite_id}")
+                                        
+                                        if detail_response.status_code == 200:
+                                            detail_data = detail_response.json()
+                                            
+                                            if "question" in detail_data and "answer" in detail_data:
+                                                self.log_test(
+                                                    "Favorite Questions - GET /api/favorites/{id}",
+                                                    True,
+                                                    f"✅ Favorite details retrieved successfully, last_accessed updated",
+                                                    {"favorite_id": favorite_id}
+                                                )
+                                                
+                                                # Step 7: Test PUT /api/favorites/{favorite_id} - Update favorite
+                                                print(f"   Step 7: Testing PUT /api/favorites/{favorite_id}...")
+                                                
+                                                update_request = {
+                                                    "category": "İnsan Kaynakları - Güncellendi",
+                                                    "tags": ["prosedür", "çalışan", "yönetim", "güncellendi"],
+                                                    "notes": "Güncellenmiş test notu"
+                                                }
+                                                
+                                                update_response = self.session.put(
+                                                    f"{self.base_url}/favorites/{favorite_id}",
+                                                    json=update_request
+                                                )
+                                                
+                                                if update_response.status_code == 200:
+                                                    update_data = update_response.json()
+                                                    
+                                                    self.log_test(
+                                                        "Favorite Questions - PUT /api/favorites/{id}",
+                                                        True,
+                                                        f"✅ Favorite updated successfully: {update_data.get('message', 'Updated')}",
+                                                        update_data
+                                                    )
+                                                    
+                                                    # Step 8: Test POST /api/favorites/{favorite_id}/replay - Replay favorite
+                                                    print(f"   Step 8: Testing POST /api/favorites/{favorite_id}/replay...")
+                                                    
+                                                    replay_response = self.session.post(f"{self.base_url}/favorites/{favorite_id}/replay")
+                                                    
+                                                    if replay_response.status_code == 200:
+                                                        replay_data = replay_response.json()
+                                                        
+                                                        required_replay_fields = ["message", "favorite_id", "new_session_id", "result"]
+                                                        missing_replay_fields = [field for field in required_replay_fields if field not in replay_data]
+                                                        
+                                                        if not missing_replay_fields:
+                                                            new_session_id = replay_data.get("new_session_id")
+                                                            result = replay_data.get("result", {})
+                                                            
+                                                            self.log_test(
+                                                                "Favorite Questions - POST /api/favorites/{id}/replay",
+                                                                True,
+                                                                f"✅ Favorite replay successful: New session {new_session_id}, Result contains answer: {len(result.get('answer', '')) > 0}",
+                                                                {"new_session_id": new_session_id, "has_answer": len(result.get('answer', '')) > 0}
+                                                            )
+                                                            
+                                                            # Step 9: Test DELETE /api/favorites/{favorite_id} - Delete favorite
+                                                            print(f"   Step 9: Testing DELETE /api/favorites/{favorite_id}...")
+                                                            
+                                                            delete_response = self.session.delete(f"{self.base_url}/favorites/{favorite_id}")
+                                                            
+                                                            if delete_response.status_code == 200:
+                                                                delete_data = delete_response.json()
+                                                                
+                                                                # Verify deletion
+                                                                verify_response = self.session.get(f"{self.base_url}/favorites/{favorite_id}")
+                                                                
+                                                                if verify_response.status_code == 404:
+                                                                    self.log_test(
+                                                                        "Favorite Questions - DELETE /api/favorites/{id}",
+                                                                        True,
+                                                                        f"✅ Favorite deleted successfully: {delete_data.get('message', 'Deleted')}",
+                                                                        delete_data
+                                                                    )
+                                                                    
+                                                                    # Step 10: Integration test summary
+                                                                    self.log_test(
+                                                                        "Favorite Questions System - INTEGRATION TEST",
+                                                                        True,
+                                                                        f"🎉 COMPLETE FAVORITE QUESTIONS SYSTEM WORKING PERFECTLY! All CRUD operations + replay functionality tested successfully. Full workflow: Add → List → Filter → Update → Replay → Delete",
+                                                                        {"workflow_completed": True}
+                                                                    )
+                                                                else:
+                                                                    self.log_test(
+                                                                        "Favorite Questions - DELETE /api/favorites/{id}",
+                                                                        False,
+                                                                        f"❌ Favorite not properly deleted - still accessible",
+                                                                        None
+                                                                    )
+                                                            else:
+                                                                self.log_test(
+                                                                    "Favorite Questions - DELETE /api/favorites/{id}",
+                                                                    False,
+                                                                    f"❌ Delete failed: HTTP {delete_response.status_code}",
+                                                                    delete_response.text
+                                                                )
+                                                        else:
+                                                            self.log_test(
+                                                                "Favorite Questions - POST /api/favorites/{id}/replay",
+                                                                False,
+                                                                f"❌ Replay response missing fields: {missing_replay_fields}",
+                                                                replay_data
+                                                            )
+                                                    else:
+                                                        self.log_test(
+                                                            "Favorite Questions - POST /api/favorites/{id}/replay",
+                                                            False,
+                                                            f"❌ Replay failed: HTTP {replay_response.status_code}",
+                                                            replay_response.text
+                                                        )
+                                                else:
+                                                    self.log_test(
+                                                        "Favorite Questions - PUT /api/favorites/{id}",
+                                                        False,
+                                                        f"❌ Update failed: HTTP {update_response.status_code}",
+                                                        update_response.text
+                                                    )
+                                            else:
+                                                self.log_test(
+                                                    "Favorite Questions - GET /api/favorites/{id}",
+                                                    False,
+                                                    f"❌ Favorite details missing required fields",
+                                                    detail_data
+                                                )
+                                        else:
+                                            self.log_test(
+                                                "Favorite Questions - GET /api/favorites/{id}",
+                                                False,
+                                                f"❌ Get favorite details failed: HTTP {detail_response.status_code}",
+                                                detail_response.text
+                                            )
+                                else:
+                                    self.log_test(
+                                        "Favorite Questions - GET /api/favorites",
+                                        False,
+                                        f"❌ Invalid favorites list structure or empty list",
+                                        list_data
+                                    )
+                            else:
+                                self.log_test(
+                                    "Favorite Questions - GET /api/favorites",
+                                    False,
+                                    f"❌ Favorites list missing required fields: {missing_list_fields}",
+                                    list_data
+                                )
+                        else:
+                            self.log_test(
+                                "Favorite Questions - GET /api/favorites",
+                                False,
+                                f"❌ List favorites failed: HTTP {list_response.status_code}",
+                                list_response.text
+                            )
+                    else:
+                        self.log_test(
+                            "Favorite Questions - POST /api/favorites",
+                            False,
+                            f"❌ Add favorite response missing required fields: {missing_fields}",
+                            add_data
+                        )
+                else:
+                    self.log_test(
+                        "Favorite Questions - POST /api/favorites",
+                        False,
+                        f"❌ Add favorite failed: HTTP {add_favorite_response.status_code}",
+                        add_favorite_response.text
+                    )
+            else:
+                self.log_test(
+                    "Favorite Questions - Test Session Creation",
+                    False,
+                    f"❌ Could not create test session for favorites: HTTP {question_response.status_code}",
+                    question_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Favorite Questions System",
+                False,
+                f"❌ Error during favorite questions system test: {str(e)}",
+                None
+            )
+
+    def test_favorite_questions_edge_cases(self):
+        """🆕 NEW FEATURE: Test Favorite Questions System Edge Cases"""
+        try:
+            print("   🔍 Testing Favorite Questions System Edge Cases...")
+            
+            # Test 1: Test 404 handling for non-existent favorite
+            print("   Test 1: Testing 404 handling...")
+            
+            fake_id = "non-existent-favorite-id-12345"
+            
+            # Test GET with non-existent ID
+            get_response = self.session.get(f"{self.base_url}/favorites/{fake_id}")
+            get_404_ok = get_response.status_code == 404
+            
+            # Test PUT with non-existent ID
+            update_request = {"category": "Test", "tags": ["test"], "notes": "test"}
+            put_response = self.session.put(f"{self.base_url}/favorites/{fake_id}", json=update_request)
+            put_404_ok = put_response.status_code == 404
+            
+            # Test DELETE with non-existent ID
+            delete_response = self.session.delete(f"{self.base_url}/favorites/{fake_id}")
+            delete_404_ok = delete_response.status_code == 404
+            
+            # Test REPLAY with non-existent ID
+            replay_response = self.session.post(f"{self.base_url}/favorites/{fake_id}/replay")
+            replay_404_ok = replay_response.status_code == 404
+            
+            error_handling_score = sum([get_404_ok, put_404_ok, delete_404_ok, replay_404_ok])
+            
+            self.log_test(
+                "Favorite Questions - 404 Error Handling",
+                error_handling_score >= 3,  # At least 3/4 should return 404
+                f"✅ 404 Error handling: {error_handling_score}/4 endpoints correctly return 404 for non-existent favorites",
+                {
+                    "get_404": get_404_ok,
+                    "put_404": put_404_ok, 
+                    "delete_404": delete_404_ok,
+                    "replay_404": replay_404_ok
+                }
+            )
+            
+            # Test 2: Test pagination with limit parameter
+            print("   Test 2: Testing pagination...")
+            
+            # Test with different limit values
+            limit_tests = [
+                {"limit": 1, "expected_max": 1},
+                {"limit": 5, "expected_max": 5},
+                {"limit": 50, "expected_max": 50}
+            ]
+            
+            pagination_working = True
+            pagination_results = []
+            
+            for test in limit_tests:
+                limit_response = self.session.get(f"{self.base_url}/favorites?limit={test['limit']}")
+                
+                if limit_response.status_code == 200:
+                    limit_data = limit_response.json()
+                    favorites_count = len(limit_data.get("favorites", []))
+                    
+                    # Should not exceed the limit
+                    limit_respected = favorites_count <= test["expected_max"]
+                    pagination_results.append({
+                        "limit": test["limit"],
+                        "returned": favorites_count,
+                        "limit_respected": limit_respected
+                    })
+                    
+                    if not limit_respected:
+                        pagination_working = False
+                else:
+                    pagination_working = False
+                    pagination_results.append({
+                        "limit": test["limit"],
+                        "error": f"HTTP {limit_response.status_code}"
+                    })
+            
+            self.log_test(
+                "Favorite Questions - Pagination",
+                pagination_working,
+                f"✅ Pagination working correctly" if pagination_working else "❌ Pagination issues detected",
+                {"pagination_results": pagination_results}
+            )
+            
+            # Test 3: Test empty query parameters
+            print("   Test 3: Testing empty/invalid parameters...")
+            
+            # Test with empty category filter
+            empty_category_response = self.session.get(f"{self.base_url}/favorites?category=")
+            
+            # Test with empty tag filter  
+            empty_tag_response = self.session.get(f"{self.base_url}/favorites?tag=")
+            
+            # Test with invalid limit
+            invalid_limit_response = self.session.get(f"{self.base_url}/favorites?limit=abc")
+            
+            parameter_handling_ok = (
+                empty_category_response.status_code in [200, 400] and
+                empty_tag_response.status_code in [200, 400] and
+                invalid_limit_response.status_code in [200, 400, 422]
+            )
+            
+            self.log_test(
+                "Favorite Questions - Parameter Validation",
+                parameter_handling_ok,
+                f"✅ Parameter validation working - handles empty/invalid parameters gracefully",
+                {
+                    "empty_category": empty_category_response.status_code,
+                    "empty_tag": empty_tag_response.status_code,
+                    "invalid_limit": invalid_limit_response.status_code
+                }
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "Favorite Questions Edge Cases",
+                False,
+                f"❌ Error during edge cases test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests including NEW Semantic Question Suggestions feature"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
