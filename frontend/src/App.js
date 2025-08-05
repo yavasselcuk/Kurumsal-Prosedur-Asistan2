@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Document, Page, pdfjs } from 'react-pdf';
 import './App.css';
-
-// PDF.js worker'ını ayarla
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 function App() {
   const [question, setQuestion] = useState('');
