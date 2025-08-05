@@ -711,6 +711,166 @@ async def update_faq_database():
             "message": str(e)
         }
 
+async def convert_docx_to_pdf(docx_content: bytes, filename: str) -> bytes:
+    """DOCX içeriğini PDF'e dönüştür"""
+    try:
+        # Geçici dosya oluştur
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_pdf:
+            # ReportLab ile PDF oluştur
+            doc = SimpleDocTemplate(tmp_pdf.name, pagesize=A4)
+            
+            # Styles
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=14,
+                spaceAfter=12,
+                textColor='black',
+                fontName='Helvetica-Bold'
+            )
+            normal_style = ParagraphStyle(
+                'CustomNormal', 
+                parent=styles['Normal'],
+                fontSize=10,
+                spaceAfter=6,
+                textColor='black',
+                fontName='Helvetica'
+            )
+            
+            # Content listesi
+            story = []
+            
+            # Başlık ekle
+            title = Paragraph(f"<b>{filename}</b>", title_style)
+            story.append(title)
+            story.append(Spacer(1, 12))
+            
+            # DOCX içeriğini parse et ve ekle
+            try:
+                # DOCX içeriğini geçici dosyaya yaz
+                with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_docx:
+                    tmp_docx.write(docx_content)
+                    tmp_docx.flush()
+                    
+                    # python-docx ile oku
+                    from docx import Document as DocxDocument
+                    docx_doc = DocxDocument(tmp_docx.name)
+                    
+                    for paragraph in docx_doc.paragraphs:
+                        if paragraph.text.strip():
+                            # HTML karakterlerini escape et
+                            text = paragraph.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                            p = Paragraph(text, normal_style)
+                            story.append(p)
+                            story.append(Spacer(1, 6))
+                    
+                    os.unlink(tmp_docx.name)  # Geçici dosyayı sil
+                    
+            except Exception as docx_error:
+                # DOCX parse edilemezse basit metin olarak ekle
+                error_text = f"Doküman içeriği görüntülenemiyor. ({str(docx_error)})"
+                story.append(Paragraph(error_text, normal_style))
+            
+            # PDF oluştur
+            doc.build(story)
+            
+            # PDF içeriğini oku
+            with open(tmp_pdf.name, 'rb') as pdf_file:
+                pdf_content = pdf_file.read()
+            
+            # Geçici dosyayı sil
+            os.unlink(tmp_pdf.name)
+            
+            return pdf_content
+            
+    except Exception as e:
+        logging.error(f"DOCX to PDF conversion error: {str(e)}")
+        # Hata durumunda basit PDF oluştur
+        return create_error_pdf(filename, str(e))
+
+def create_error_pdf(filename: str, error_message: str) -> bytes:
+    """Hata durumunda basit PDF oluştur"""
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_pdf:
+            c = canvas.Canvas(tmp_pdf.name, pagesize=A4)
+            width, height = A4
+            
+            # Başlık
+            c.setFont("Helvetica-Bold", 16)
+            c.drawString(50, height - 50, f"Doküman: {filename}")
+            
+            # Hata mesajı
+            c.setFont("Helvetica", 12)
+            c.drawString(50, height - 100, "PDF Dönüştürme Hatası:")
+            c.drawString(50, height - 120, error_message)
+            
+            c.save()
+            
+            with open(tmp_pdf.name, 'rb') as pdf_file:
+                pdf_content = pdf_file.read()
+            
+            os.unlink(tmp_pdf.name)
+            return pdf_content
+            
+    except Exception as e:
+        logging.error(f"Error PDF creation failed: {str(e)}")
+        return b""  # Boş bytes döndür
+
+async def get_pdf_metadata(pdf_content: bytes) -> dict:
+    """PDF metadata bilgilerini çıkar"""
+    try:
+        # PDF'yi geçici dosyaya yaz
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_pdf:
+            tmp_pdf.write(pdf_content)
+            tmp_pdf.flush()
+            
+            # pypdf ile metadata oku
+            with open(tmp_pdf.name, 'rb') as pdf_file:
+                pdf_reader = PdfReader(pdf_file)
+                
+                metadata = {
+                    "page_count": len(pdf_reader.pages),
+                    "file_size": len(pdf_content),
+                    "file_size_human": format_file_size(len(pdf_content))
+                }
+                
+                # PDF info varsa ekle
+                if pdf_reader.metadata:
+                    if pdf_reader.metadata.title:
+                        metadata["title"] = pdf_reader.metadata.title
+                    if pdf_reader.metadata.author:
+                        metadata["author"] = pdf_reader.metadata.author
+                    if pdf_reader.metadata.creator:
+                        metadata["creator"] = pdf_reader.metadata.creator
+                    if pdf_reader.metadata.producer:
+                        metadata["producer"] = pdf_reader.metadata.producer
+                
+            os.unlink(tmp_pdf.name)
+            return metadata
+            
+    except Exception as e:
+        logging.error(f"PDF metadata extraction error: {str(e)}")
+        return {
+            "page_count": 1,
+            "file_size": len(pdf_content),
+            "file_size_human": format_file_size(len(pdf_content)),
+            "error": str(e)
+        }
+
+def format_file_size(size_bytes: int) -> str:
+    """Dosya boyutunu human readable formata çevir"""
+    if size_bytes == 0:
+        return "0 B"
+    
+    size_names = ["B", "KB", "MB", "GB"]
+    i = 0
+    while size_bytes >= 1024 and i < len(size_names) - 1:
+        size_bytes /= 1024.0
+        i += 1
+    
+    return f"{size_bytes:.1f} {size_names[i]}"
+
 async def generate_answer_with_gemini(question: str, context_chunks: List[str], session_id: str) -> tuple[str, List[str]]:
     """Gemini ile cevap üretme - kaynak dokümanlarla birlikte"""
     try:
