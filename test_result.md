@@ -582,7 +582,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Frequently Asked Questions (FAQ) System - Complete CRUD Operations"
+    - "PDF Viewer Integration - Complete PDF Functionality"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
