@@ -1054,6 +1054,16 @@ function App() {
             ❓ Sık Sorular
           </button>
           <button
+            onClick={() => setActiveTab('search')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'search'
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            🔍 Arama
+          </button>
+          <button
             onClick={() => setActiveTab('documents')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'documents'
