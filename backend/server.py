@@ -1135,6 +1135,219 @@ async def get_similar_questions(q: str, similarity: float = 0.6, limit: int = 5)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Benzer sorular aranırken hata: {str(e)}")
 
+@api_router.post("/favorites")
+async def add_to_favorites(request: FavoriteQuestionRequest):
+    """Soruyu favorilere ekle"""
+    try:
+        # Aynı soru zaten favorilerde mi kontrol et
+        existing = await db.favorite_questions.find_one({
+            "question": request.question,
+            "original_session_id": request.session_id
+        })
+        
+        if existing:
+            # Varsa favorite_count'u artır ve last_accessed'i güncelle
+            await db.favorite_questions.update_one(
+                {"id": existing["id"]},
+                {
+                    "$inc": {"favorite_count": 1},
+                    "$set": {"last_accessed": datetime.utcnow()}
+                }
+            )
+            
+            return {
+                "message": "Soru zaten favorilerde. Favori sayısı artırıldı.",
+                "favorite_id": existing["id"],
+                "favorite_count": existing.get("favorite_count", 1) + 1,
+                "already_exists": True
+            }
+        
+        # Yeni favori oluştur
+        favorite = FavoriteQuestion(
+            question=request.question,
+            answer=request.answer,
+            original_session_id=request.session_id,
+            source_documents=request.source_documents,
+            category=request.category,
+            tags=request.tags,
+            notes=request.notes,
+            last_accessed=datetime.utcnow()
+        )
+        
+        await db.favorite_questions.insert_one(favorite.dict())
+        
+        return {
+            "message": "Soru favorilere başarıyla eklendi",
+            "favorite_id": favorite.id,
+            "favorite_count": 1,
+            "already_exists": False
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori eklenirken hata: {str(e)}")
+
+@api_router.get("/favorites")
+async def get_favorites(category: Optional[str] = None, tag: Optional[str] = None, limit: int = 50):
+    """Favori soruları listele"""
+    try:
+        # Filtre oluştur
+        filter_query = {}
+        if category:
+            filter_query["category"] = category
+        if tag:
+            filter_query["tags"] = {"$in": [tag]}
+        
+        # Favorileri getir
+        favorites = await db.favorite_questions.find(filter_query).sort("last_accessed", -1).limit(limit).to_list(limit)
+        
+        # FavoriteQuestionInfo formatına çevir
+        favorite_list = []
+        for fav in favorites:
+            answer_preview = fav.get("answer", "")
+            if len(answer_preview) > 200:
+                answer_preview = answer_preview[:200] + "..."
+            
+            favorite_info = {
+                "id": fav.get("id"),
+                "question": fav.get("question"),
+                "answer_preview": answer_preview,
+                "original_session_id": fav.get("original_session_id"),
+                "source_documents": fav.get("source_documents", []),
+                "tags": fav.get("tags", []),
+                "category": fav.get("category"),
+                "notes": fav.get("notes"),
+                "favorite_count": fav.get("favorite_count", 1),
+                "created_at": fav.get("created_at"),
+                "last_accessed": fav.get("last_accessed")
+            }
+            favorite_list.append(favorite_info)
+        
+        # İstatistikler
+        total_favorites = await db.favorite_questions.count_documents({})
+        categories = await db.favorite_questions.distinct("category")
+        tags = await db.favorite_questions.distinct("tags")
+        
+        return {
+            "favorites": favorite_list,
+            "statistics": {
+                "total_favorites": total_favorites,
+                "returned_count": len(favorite_list),
+                "unique_categories": len([c for c in categories if c]),
+                "unique_tags": len(tags),
+                "available_categories": [c for c in categories if c],
+                "available_tags": tags
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favoriler alınırken hata: {str(e)}")
+
+@api_router.get("/favorites/{favorite_id}")
+async def get_favorite_detail(favorite_id: str):
+    """Favori sorunun detayını getir"""
+    try:
+        favorite = await db.favorite_questions.find_one({"id": favorite_id})
+        
+        if not favorite:
+            raise HTTPException(status_code=404, detail="Favori soru bulunamadı")
+        
+        # Last accessed'i güncelle
+        await db.favorite_questions.update_one(
+            {"id": favorite_id},
+            {"$set": {"last_accessed": datetime.utcnow()}}
+        )
+        
+        return favorite
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori detayı alınırken hata: {str(e)}")
+
+@api_router.put("/favorites/{favorite_id}")
+async def update_favorite(favorite_id: str, request: FavoriteQuestionUpdateRequest):
+    """Favori soru bilgilerini güncelle"""
+    try:
+        update_data = {}
+        if request.category is not None:
+            update_data["category"] = request.category
+        if request.tags:
+            update_data["tags"] = request.tags
+        if request.notes is not None:
+            update_data["notes"] = request.notes
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="Güncellenecek alan belirtilmedi")
+        
+        result = await db.favorite_questions.update_one(
+            {"id": favorite_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Favori soru bulunamadı")
+        
+        return {"message": "Favori soru başarıyla güncellendi"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori güncellenirken hata: {str(e)}")
+
+@api_router.delete("/favorites/{favorite_id}")
+async def delete_favorite(favorite_id: str):
+    """Favori soruyu sil"""
+    try:
+        result = await db.favorite_questions.delete_one({"id": favorite_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Favori soru bulunamadı")
+        
+        return {"message": "Favori soru başarıyla silindi"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori silinirken hata: {str(e)}")
+
+@api_router.post("/favorites/{favorite_id}/replay")
+async def replay_favorite_question(favorite_id: str):
+    """Favori soruyu tekrar çalıştır"""
+    try:
+        # Favori soruyu bul
+        favorite = await db.favorite_questions.find_one({"id": favorite_id})
+        
+        if not favorite:
+            raise HTTPException(status_code=404, detail="Favori soru bulunamadı")
+        
+        # Yeni session ID oluştur
+        new_session_id = str(uuid.uuid4())
+        
+        # Soruyu tekrar çalıştır
+        question_request = QuestionRequest(
+            question=favorite["question"],
+            session_id=new_session_id
+        )
+        
+        result = await ask_question(question_request)
+        
+        # Last accessed'i güncelle
+        await db.favorite_questions.update_one(
+            {"id": favorite_id},
+            {"$set": {"last_accessed": datetime.utcnow()}}
+        )
+        
+        return {
+            "message": "Favori soru başarıyla tekrar çalıştırıldı",
+            "favorite_id": favorite_id,
+            "original_session_id": favorite["original_session_id"],
+            "new_session_id": new_session_id,
+            "result": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori soru tekrar çalıştırılırken hata: {str(e)}")
+
 @api_router.get("/documents")
 async def get_documents(group_id: Optional[str] = None):
     """Yüklenmiş dokümanları listele (gelişmiş + gruplandırma)"""
