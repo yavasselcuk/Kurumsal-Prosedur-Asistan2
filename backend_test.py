@@ -5709,6 +5709,11 @@ class KPABackendTester:
         # Enhanced features tests
         self.test_file_validation()
         
+        # 🆕 NEW SIMPLIFIED DOCUMENT DOWNLOAD SYSTEM TEST
+        print("\n📥 NEW SIMPLIFIED DOCUMENT DOWNLOAD SYSTEM TEST:")
+        print("-" * 55)
+        self.test_simplified_document_download_system()
+        
         # 🔥 PRIORITY TEST - Enhanced DOC Processing Fix for PDF Viewer
         print("\n🔥 PRIORITY TEST - ENHANCED DOC PROCESSING FIX:")
         print("-" * 55)
