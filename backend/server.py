@@ -1730,7 +1730,7 @@ async def get_system_status():
 
 # Grup yönetimi endpoint'leri
 @api_router.get("/groups")
-async def get_groups():
+async def get_groups(current_user: dict = Depends(get_current_active_user)):
     """Tüm grupları listele"""
     try:
         groups = await db.document_groups.find({}, {"_id": 0}).sort("name", 1).to_list(100)
