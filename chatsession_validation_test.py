@@ -8,7 +8,7 @@ import requests
 import json
 import time
 
-BACKEND_URL = "https://f2ead008-c379-4406-a4b1-d910c3eaf61c.preview.emergentagent.com/api"
+BACKEND_URL = "https://ba75e451-2594-4c01-9332-1b1f91b06df3.preview.emergentagent.com/api"
 
 def test_chatsession_validation_fix():
     """Test ChatSession Pydantic validation fix - source_documents field"""

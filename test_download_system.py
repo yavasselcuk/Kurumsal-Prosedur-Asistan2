@@ -10,7 +10,7 @@ from typing import Dict, Any, List
 import time
 
 # Backend URL from environment
-BACKEND_URL = "https://f2ead008-c379-4406-a4b1-d910c3eaf61c.preview.emergentagent.com/api"
+BACKEND_URL = "https://ba75e451-2594-4c01-9332-1b1f91b06df3.preview.emergentagent.com/api"
 
 def test_simplified_document_download_system():
     """Test simplified document download system that replaced PDF viewer"""
