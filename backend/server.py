@@ -746,30 +746,58 @@ async def convert_docx_to_pdf(docx_content: bytes, filename: str) -> bytes:
             story.append(title)
             story.append(Spacer(1, 12))
             
-            # DOCX içeriğini parse et ve ekle
+            # Doküman içeriğini veritabanından direkt kullan
             try:
-                # DOCX içeriğini geçici dosyaya yaz
+                # İlk olarak docx_content'in tipini kontrol et
+                if isinstance(docx_content, str):
+                    # String ise base64 decode edilmiş olabilir
+                    try:
+                        docx_content = base64.b64decode(docx_content)
+                    except:
+                        docx_content = docx_content.encode('utf-8')
+                
+                # Geçici DOCX dosyası oluştur
                 with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_docx:
                     tmp_docx.write(docx_content)
                     tmp_docx.flush()
                     
                     # python-docx ile oku
-                    from docx import Document as DocxDocument
-                    docx_doc = DocxDocument(tmp_docx.name)
+                    try:
+                        from docx import Document as DocxDocument
+                        docx_doc = DocxDocument(tmp_docx.name)
+                        
+                        paragraph_count = 0
+                        for paragraph in docx_doc.paragraphs:
+                            if paragraph.text.strip():
+                                # HTML karakterlerini escape et
+                                text = paragraph.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                                p = Paragraph(text, normal_style)
+                                story.append(p)
+                                story.append(Spacer(1, 6))
+                                paragraph_count += 1
+                        
+                        if paragraph_count == 0:
+                            # Eğer hiç paragraf yoksa, raw content'i göster
+                            story.append(Paragraph("Doküman içeriği metin formatında görüntülenemiyor.", normal_style))
+                        
+                    except Exception as docx_parse_error:
+                        logging.error(f"DOCX parsing error: {str(docx_parse_error)}")
+                        # DOCX parse edilemezse temel bilgi göster
+                        error_text = f"Doküman parse edilemedi: {str(docx_parse_error)}"
+                        story.append(Paragraph(error_text, normal_style))
+                        story.append(Spacer(1, 12))
+                        story.append(Paragraph("Doküman mevcut ancak içeriği görüntülenemiyor.", normal_style))
                     
-                    for paragraph in docx_doc.paragraphs:
-                        if paragraph.text.strip():
-                            # HTML karakterlerini escape et
-                            text = paragraph.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                            p = Paragraph(text, normal_style)
-                            story.append(p)
-                            story.append(Spacer(1, 6))
+                    # Geçici DOCX dosyasını sil
+                    try:
+                        os.unlink(tmp_docx.name)
+                    except:
+                        pass
                     
-                    os.unlink(tmp_docx.name)  # Geçici dosyayı sil
-                    
-            except Exception as docx_error:
-                # DOCX parse edilemezse basit metin olarak ekle
-                error_text = f"Doküman içeriği görüntülenemiyor. ({str(docx_error)})"
+            except Exception as content_error:
+                logging.error(f"Content processing error: {str(content_error)}")
+                # Content işlenemezse genel hata göster
+                error_text = f"İçerik işleme hatası: {str(content_error)}"
                 story.append(Paragraph(error_text, normal_style))
             
             # PDF oluştur
@@ -779,8 +807,11 @@ async def convert_docx_to_pdf(docx_content: bytes, filename: str) -> bytes:
             with open(tmp_pdf.name, 'rb') as pdf_file:
                 pdf_content = pdf_file.read()
             
-            # Geçici dosyayı sil
-            os.unlink(tmp_pdf.name)
+            # Geçici PDF dosyasını sil
+            try:
+                os.unlink(tmp_pdf.name)
+            except:
+                pass
             
             return pdf_content
             
