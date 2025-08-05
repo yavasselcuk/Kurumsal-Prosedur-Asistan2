@@ -1815,7 +1815,7 @@ async def update_group(group_id: str, request: GroupCreateRequest, current_user:
         raise HTTPException(status_code=500, detail=f"Grup güncellenirken hata: {str(e)}")
 
 @api_router.delete("/groups/{group_id}")
-async def delete_group(group_id: str, move_documents: bool = False):
+async def delete_group(group_id: str, move_documents: bool = False, current_user: dict = Depends(require_editor_or_admin)):
     """Grup sil"""
     try:
         # Grup bilgilerini al
