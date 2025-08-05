@@ -194,6 +194,23 @@ class FAQGenerateRequest(BaseModel):
     max_faq_items: int = 50  # Maksimum FAQ sayısı
     categories: List[str] = []  # Belirli kategorilerle sınırla
 
+class DocumentSearchRequest(BaseModel):
+    query: str
+    document_ids: List[str] = []  # Specific documents to search in (empty = all)
+    group_ids: List[str] = []  # Specific groups to search in (empty = all)
+    search_type: str = "text"  # "text", "regex", "exact"
+    case_sensitive: bool = False
+    max_results: int = 50
+    highlight_context: int = 100  # Characters around match to show
+
+class DocumentSearchResult(BaseModel):
+    document_id: str
+    document_filename: str
+    document_group: Optional[str]
+    matches: List[dict]  # List of match objects with position, context, highlighted_text
+    total_matches: int
+    match_score: float  # Relevance score
+
 # Helper functions
 async def extract_text_from_document(file_content: bytes, filename: str) -> str:
     """Word dokümanından metin çıkarma (.doc ve .docx desteği) - Improved"""
