@@ -5670,6 +5670,295 @@ class KPABackendTester:
                 None
             )
 
+    def test_simplified_document_download_system(self):
+        """🔥 NEW FEATURE: Test simplified document download system that replaced PDF viewer"""
+        try:
+            print("   📥 TESTING SIMPLIFIED DOCUMENT DOWNLOAD SYSTEM...")
+            print("   📋 Testing: Direct original document download (.doc/.docx) without PDF conversion")
+            
+            # Get available documents first
+            docs_response = self.session.get(f"{self.base_url}/documents")
+            
+            if docs_response.status_code != 200:
+                self.log_test(
+                    "Simplified Document Download - Documents List",
+                    False,
+                    f"❌ Could not retrieve documents list: HTTP {docs_response.status_code}",
+                    docs_response.text
+                )
+                return
+            
+            docs_data = docs_response.json()
+            documents = docs_data.get("documents", [])
+            
+            if not documents:
+                self.log_test(
+                    "Simplified Document Download - No Documents",
+                    True,
+                    "✅ No documents available to test download (system may be empty)",
+                    None
+                )
+                return
+            
+            # Test 1: Test the specific problematic document mentioned in review
+            print("   Step 1: Testing specific problematic document 'IKY-P03-00 Personel Proseduru.doc'...")
+            
+            target_document = None
+            for doc in documents:
+                if "IKY-P03-00 Personel Proseduru" in doc.get("filename", ""):
+                    target_document = doc
+                    break
+            
+            if target_document:
+                doc_id = target_document['id']
+                filename = target_document['filename']
+                file_type = target_document.get('file_type', '')
+                
+                print(f"   ✅ Found target document: {filename}")
+                
+                # Test original document download
+                download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download-original")
+                
+                if download_response.status_code == 200:
+                    # Check response headers
+                    content_type = download_response.headers.get('content-type', '')
+                    content_disposition = download_response.headers.get('content-disposition', '')
+                    content_length = download_response.headers.get('content-length', '')
+                    
+                    # Verify MIME type based on file extension
+                    expected_mime_type = ""
+                    if file_type == '.doc':
+                        expected_mime_type = "application/msword"
+                    elif file_type == '.docx':
+                        expected_mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    
+                    mime_type_correct = content_type == expected_mime_type
+                    has_attachment_header = 'attachment' in content_disposition and filename in content_disposition
+                    has_content = len(download_response.content) > 0
+                    
+                    if mime_type_correct and has_attachment_header and has_content:
+                        self.log_test(
+                            "Simplified Document Download - Target Document Success",
+                            True,
+                            f"✅ SUCCESS! Target document '{filename}' downloads correctly. MIME type: {content_type}, Size: {len(download_response.content)} bytes, Proper attachment headers",
+                            {
+                                "document_id": doc_id,
+                                "filename": filename,
+                                "file_type": file_type,
+                                "content_type": content_type,
+                                "content_disposition": content_disposition,
+                                "content_size": len(download_response.content)
+                            }
+                        )
+                    else:
+                        issues = []
+                        if not mime_type_correct:
+                            issues.append(f"Wrong MIME type: got {content_type}, expected {expected_mime_type}")
+                        if not has_attachment_header:
+                            issues.append(f"Missing/incorrect attachment header: {content_disposition}")
+                        if not has_content:
+                            issues.append("Empty content")
+                        
+                        self.log_test(
+                            "Simplified Document Download - Target Document Issues",
+                            False,
+                            f"❌ Download issues for '{filename}': {'; '.join(issues)}",
+                            {
+                                "document_id": doc_id,
+                                "filename": filename,
+                                "issues": issues,
+                                "content_type": content_type,
+                                "content_disposition": content_disposition
+                            }
+                        )
+                else:
+                    self.log_test(
+                        "Simplified Document Download - Target Document Failed",
+                        False,
+                        f"❌ Download failed for '{filename}': HTTP {download_response.status_code}",
+                        {
+                            "document_id": doc_id,
+                            "filename": filename,
+                            "status_code": download_response.status_code,
+                            "error": download_response.text[:200]
+                        }
+                    )
+            else:
+                print("   ⚠️ Target document 'IKY-P03-00 Personel Proseduru.doc' not found")
+            
+            # Test 2: Test various document types (.doc and .docx)
+            print("   Step 2: Testing various document types...")
+            
+            doc_files = [doc for doc in documents if doc.get("file_type") == ".doc"]
+            docx_files = [doc for doc in documents if doc.get("file_type") == ".docx"]
+            
+            download_results = {
+                "doc_success": 0,
+                "doc_total": 0,
+                "docx_success": 0,
+                "docx_total": 0,
+                "mime_type_correct": 0,
+                "attachment_headers_correct": 0
+            }
+            
+            # Test up to 3 DOC files
+            for doc in doc_files[:3]:
+                download_results["doc_total"] += 1
+                doc_id = doc["id"]
+                filename = doc["filename"]
+                
+                download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download-original")
+                
+                if download_response.status_code == 200:
+                    content_type = download_response.headers.get('content-type', '')
+                    content_disposition = download_response.headers.get('content-disposition', '')
+                    
+                    # Check MIME type for .doc files
+                    if content_type == "application/msword":
+                        download_results["mime_type_correct"] += 1
+                    
+                    # Check attachment headers
+                    if 'attachment' in content_disposition and filename in content_disposition:
+                        download_results["attachment_headers_correct"] += 1
+                    
+                    # Check content
+                    if len(download_response.content) > 0:
+                        download_results["doc_success"] += 1
+            
+            # Test up to 3 DOCX files
+            for doc in docx_files[:3]:
+                download_results["docx_total"] += 1
+                doc_id = doc["id"]
+                filename = doc["filename"]
+                
+                download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download-original")
+                
+                if download_response.status_code == 200:
+                    content_type = download_response.headers.get('content-type', '')
+                    content_disposition = download_response.headers.get('content-disposition', '')
+                    
+                    # Check MIME type for .docx files
+                    if content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                        download_results["mime_type_correct"] += 1
+                    
+                    # Check attachment headers
+                    if 'attachment' in content_disposition and filename in content_disposition:
+                        download_results["attachment_headers_correct"] += 1
+                    
+                    # Check content
+                    if len(download_response.content) > 0:
+                        download_results["docx_success"] += 1
+            
+            total_files = download_results["doc_total"] + download_results["docx_total"]
+            total_success = download_results["doc_success"] + download_results["docx_success"]
+            
+            if total_files > 0:
+                success_rate = total_success / total_files
+                mime_accuracy = download_results["mime_type_correct"] / total_files if total_files > 0 else 0
+                header_accuracy = download_results["attachment_headers_correct"] / total_files if total_files > 0 else 0
+                
+                overall_success = success_rate >= 0.8 and mime_accuracy >= 0.8 and header_accuracy >= 0.8
+                
+                self.log_test(
+                    "Simplified Document Download - Multiple File Types",
+                    overall_success,
+                    f"Download results: DOC files {download_results['doc_success']}/{download_results['doc_total']}, DOCX files {download_results['docx_success']}/{download_results['docx_total']}. MIME type accuracy: {mime_accuracy:.1%}, Header accuracy: {header_accuracy:.1%}",
+                    download_results
+                )
+            
+            # Test 3: Test content handling for different storage formats
+            print("   Step 3: Testing content handling for different storage formats...")
+            
+            # Test with a few documents to see if content is properly handled
+            content_handling_results = {"success": 0, "total": 0, "errors": []}
+            
+            for doc in documents[:3]:  # Test first 3 documents
+                content_handling_results["total"] += 1
+                doc_id = doc["id"]
+                filename = doc["filename"]
+                
+                download_response = self.session.get(f"{self.base_url}/documents/{doc_id}/download-original")
+                
+                if download_response.status_code == 200:
+                    content = download_response.content
+                    
+                    # Basic content validation - should not be empty and should have some structure
+                    if len(content) > 0:
+                        # For DOC files, check for DOC signature
+                        if filename.endswith('.doc'):
+                            # DOC files typically start with specific bytes
+                            if content.startswith(b'\xd0\xcf\x11\xe0') or len(content) > 100:
+                                content_handling_results["success"] += 1
+                            else:
+                                content_handling_results["errors"].append(f"{filename}: Invalid DOC content structure")
+                        # For DOCX files, check for ZIP signature (DOCX is a ZIP file)
+                        elif filename.endswith('.docx'):
+                            if content.startswith(b'PK') or len(content) > 100:
+                                content_handling_results["success"] += 1
+                            else:
+                                content_handling_results["errors"].append(f"{filename}: Invalid DOCX content structure")
+                        else:
+                            # Unknown format, but if it has content, consider it success
+                            if len(content) > 0:
+                                content_handling_results["success"] += 1
+                    else:
+                        content_handling_results["errors"].append(f"{filename}: Empty content")
+                else:
+                    content_handling_results["errors"].append(f"{filename}: HTTP {download_response.status_code}")
+            
+            if content_handling_results["total"] > 0:
+                content_success_rate = content_handling_results["success"] / content_handling_results["total"]
+                
+                self.log_test(
+                    "Simplified Document Download - Content Handling",
+                    content_success_rate >= 0.8,
+                    f"Content handling: {content_handling_results['success']}/{content_handling_results['total']} files handled correctly ({content_success_rate:.1%})",
+                    content_handling_results
+                )
+            
+            # Test 4: Test error handling for non-existent documents
+            print("   Step 4: Testing error handling...")
+            
+            fake_doc_id = "non-existent-document-12345"
+            error_response = self.session.get(f"{self.base_url}/documents/{fake_doc_id}/download-original")
+            
+            if error_response.status_code == 404:
+                try:
+                    error_data = error_response.json()
+                    error_message = error_data.get("detail", "")
+                    
+                    # Check if error message is in Turkish and user-friendly
+                    is_turkish = any(word in error_message.lower() for word in ["doküman", "bulunamadı", "mevcut"])
+                    
+                    self.log_test(
+                        "Simplified Document Download - Error Handling",
+                        is_turkish,
+                        f"Error handling: {'Good' if is_turkish else 'Basic'} - {error_message}",
+                        {"error_message": error_message, "turkish": is_turkish}
+                    )
+                except:
+                    self.log_test(
+                        "Simplified Document Download - Error Handling",
+                        True,
+                        "Error handling working (404 returned for non-existent document)",
+                        None
+                    )
+            else:
+                self.log_test(
+                    "Simplified Document Download - Error Handling",
+                    False,
+                    f"Expected 404 for non-existent document, got {error_response.status_code}",
+                    error_response.text
+                )
+            
+        except Exception as e:
+            self.log_test(
+                "Simplified Document Download System",
+                False,
+                f"❌ Error during simplified document download test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests including NEW FAQ System feature"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
