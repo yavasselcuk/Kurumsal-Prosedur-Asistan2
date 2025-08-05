@@ -4880,6 +4880,12 @@ class KPABackendTester:
         self.test_favorite_questions_system()
         self.test_favorite_questions_edge_cases()
         
+        print("\n📄 NEW PDF VIEWER INTEGRATION TESTS:")
+        print("-" * 45)
+        
+        # 🆕 NEW PDF VIEWER INTEGRATION TESTS
+        self.test_pdf_viewer_integration()
+        
         return self.get_summary()
 
     def get_summary(self):
