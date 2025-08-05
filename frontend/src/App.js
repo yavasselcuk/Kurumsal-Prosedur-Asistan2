@@ -48,13 +48,6 @@ function App() {
   const [faqAnalytics, setFaqAnalytics] = useState(null);
   const [generatingFaq, setGeneratingFaq] = useState(false);
   
-  // PDF Viewer için yeni state'ler
-  const [showPdfModal, setShowPdfModal] = useState(false);
-  const [currentPdfDocument, setCurrentPdfDocument] = useState(null);
-  const [pdfMetadata, setPdfMetadata] = useState(null);
-  const [loadingPdf, setLoadingPdf] = useState(false);
-  const [pdfError, setPdfError] = useState(null);
-  
   const chatEndRef = useRef(null);
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
