@@ -281,6 +281,182 @@ function App() {
     }
   };
 
+  // Admin Dashboard Functions
+  const fetchUserStats = async () => {
+    if (!isAuthenticated || !authToken || currentUser?.role !== 'admin') return;
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/users/stats`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats(data);
+      }
+    } catch (error) {
+      console.error('User stats error:', error);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    if (!isAuthenticated || !authToken || currentUser?.role !== 'admin') return;
+    
+    setLoadingUsers(true);
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/users`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAllUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Users fetch error:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const createUser = async () => {
+    if (!isAuthenticated || !authToken) return;
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/create-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newUser)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Kullanıcı başarıyla oluşturuldu!');
+        setShowCreateUser(false);
+        setNewUser({ username: '', email: '', full_name: '', password: '', role: 'viewer' });
+        fetchAllUsers();
+        fetchUserStats();
+      } else {
+        alert('Kullanıcı oluşturma hatası: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Create user error:', error);
+      alert('Kullanıcı oluşturma hatası: ' + error.message);
+    }
+  };
+
+  const updateUser = async (userId) => {
+    if (!isAuthenticated || !authToken) return;
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userForm)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Kullanıcı başarıyla güncellendi!');
+        setShowEditUser(false);
+        setEditingUser(null);
+        setUserForm({ full_name: '', email: '', role: '', is_active: true });
+        fetchAllUsers();
+        fetchUserStats();
+      } else {
+        alert('Kullanıcı güncelleme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Update user error:', error);
+      alert('Kullanıcı güncelleme hatası: ' + error.message);
+    }
+  };
+
+  const deleteUser = async (userId, username) => {
+    if (!isAuthenticated || !authToken) return;
+    
+    if (!confirm(`${username} kullanıcısını silmek istediğinizden emin misiniz?`)) return;
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Kullanıcı başarıyla silindi!');
+        fetchAllUsers();
+        fetchUserStats();
+      } else {
+        alert('Kullanıcı silme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Delete user error:', error);
+      alert('Kullanıcı silme hatası: ' + error.message);
+    }
+  };
+
+  const bulkUpdateUsers = async (action, newRole = null) => {
+    if (!isAuthenticated || !authToken || selectedUsers.length === 0) return;
+    
+    const actionText = {
+      'activate': 'etkinleştir',
+      'deactivate': 'devre dışı bırak',  
+      'change_role': `rolünü ${newRole} olarak değiştir`,
+      'delete': 'sil'
+    };
+    
+    if (!confirm(`Seçili ${selectedUsers.length} kullanıcıyı ${actionText[action]}mek istediğinizden emin misiniz?`)) return;
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/users/bulk-update`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_ids: selectedUsers,
+          action: action,
+          new_role: newRole
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Toplu işlem başarılı: ${data.affected_count} kullanıcı etkilendi`);
+        setSelectedUsers([]);
+        fetchAllUsers();
+        fetchUserStats();
+      } else {
+        alert('Toplu işlem hatası: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      alert('Toplu işlem hatası: ' + error.message);
+    }
+  };
+
   const fetchSystemStatus = async () => {
     try {
       const response = await fetch(`${backendUrl}/api/status`);
