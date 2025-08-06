@@ -464,6 +464,64 @@ function App() {
     }
   };
 
+  // Mandatory Password Change Function
+  const handleMandatoryPasswordChange = async () => {
+    if (!mandatoryPasswordForm.current_password.trim()) {
+      showError('Eksik Bilgi', 'Mevcut şifrenizi girin!');
+      return;
+    }
+    
+    if (!mandatoryPasswordForm.new_password.trim()) {
+      showError('Eksik Bilgi', 'Yeni şifrenizi girin!');
+      return;
+    }
+    
+    if (mandatoryPasswordForm.new_password !== mandatoryPasswordForm.confirm_password) {
+      showError('Şifre Uyumsuzluğu', 'Yeni şifreler eşleşmiyor!');
+      return;
+    }
+    
+    if (mandatoryPasswordForm.new_password.length < 6) {
+      showError('Geçersiz Şifre', 'Yeni şifre en az 6 karakter olmalıdır!');
+      return;
+    }
+    
+    setMandatoryPasswordLoading(true);
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_password: mandatoryPasswordForm.current_password,
+          new_password: mandatoryPasswordForm.new_password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showSuccess('Şifre Değiştirildi', 'Şifreniz başarıyla değiştirildi. Artık sistemi kullanabilirsiniz.');
+        setShowMandatoryPasswordChange(false);
+        setMandatoryPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+        
+        // Update user info to remove must_change_password flag
+        const updatedUser = { ...currentUser, must_change_password: false };
+        setCurrentUser(updatedUser);
+      } else {
+        showError('Şifre Değiştirme Hatası', data.detail || 'Mevcut şifre yanlış olabilir');
+      }
+    } catch (error) {
+      console.error('Mandatory password change error:', error);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+    } finally {
+      setMandatoryPasswordLoading(false);
+    }
+  };
+
   // Admin Dashboard Functions
   const fetchUserStats = async () => {
     if (!isAuthenticated || !authToken || currentUser?.role !== 'admin') return;
