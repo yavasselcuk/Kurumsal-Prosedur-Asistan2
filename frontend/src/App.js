@@ -3068,7 +3068,7 @@ function App() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                     <input
                       id="fileInput"
                       type="file"
@@ -3082,6 +3082,14 @@ function App() {
                     >
                       Dosya Seç
                     </label>
+                    
+                    <button
+                      onClick={() => setShowBulkUploadModal(true)}
+                      className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center space-x-2"
+                    >
+                      <span>📚</span>
+                      <span>Toplu Yükleme</span>
+                    </button>
                     
                     {selectedFile && (
                       <div className="flex items-center space-x-3">
