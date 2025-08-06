@@ -2486,6 +2486,78 @@ function App() {
         </div>
       )}
 
+      {/* Login Modal */}
+      {showLogin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <span className="text-white font-bold text-2xl">KPA</span>
+              </div>
+              <h3 className="text-2xl font-semibold text-gray-900">Giriş Yap</h3>
+              <p className="text-gray-600 mt-2">Kurumsal Prosedür Asistanı'na erişim için giriş yapın</p>
+            </div>
+            
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kullanıcı Adı
+                </label>
+                <input
+                  type="text"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Kullanıcı adınızı girin"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Şifre
+                </label>
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Şifrenizi girin"
+                  required
+                />
+              </div>
+              
+              <div className="flex justify-between items-center space-x-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLogin(false);
+                    setLoginForm({ username: '', password: '' });
+                  }}
+                  className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loginLoading}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  {loginLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+                </button>
+              </div>
+            </form>
+            
+            {/* Demo credentials info */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 text-center">
+                <strong>Demo Giriş:</strong><br />
+                Kullanıcı: admin | Şifre: admin123
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
