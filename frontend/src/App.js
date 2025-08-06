@@ -1040,28 +1040,26 @@ function App() {
     }
 
     try {
-      console.log('Deleting document:', documentId);
-      console.log('Backend URL:', backendUrl);
-      
       const response = await fetch(`${backendUrl}/api/documents/${documentId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      console.log('Delete response status:', response.status);
       const data = await response.json();
-      console.log('Delete response data:', data);
 
       if (response.ok) {
         await fetchDocuments();
         await fetchSystemStatus();
-        alert(data.message || 'Doküman başarıyla silindi.');
+        showSuccess('Doküman Silindi', data.message || 'Doküman başarıyla silindi');
       } else {
-        console.error('Delete failed:', data);
-        alert(`Hata: ${data.detail || data.message || 'Bilinmeyen hata'}`);
+        showError('Silme Hatası', data.detail || 'Doküman silinirken bir hata oluştu');
       }
     } catch (error) {
       console.error('Delete error:', error);
-      alert(`Silme hatası: ${error.message}`);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
@@ -1072,7 +1070,7 @@ function App() {
     if (document) {
       downloadOriginalDocument(docId, document.filename);
     } else {
-      alert('Doküman bulunamadı');
+      showError('Doküman Bulunamadı', 'İstenen doküman bulunamadı');
     }
   };
 
