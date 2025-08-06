@@ -500,7 +500,7 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        showSuccess('Kullanıcı Oluşturuldu', `${user_data.username} kullanıcısı başarıyla oluşturuldu`);
+        showSuccess('Kullanıcı Oluşturuldu', `${newUser.username} kullanıcısı başarıyla oluşturuldu`);
         setShowCreateUser(false);
         setNewUser({ username: '', email: '', full_name: '', password: '', role: 'viewer' });
         fetchAllUsers();
