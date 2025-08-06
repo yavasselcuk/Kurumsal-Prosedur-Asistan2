@@ -3529,22 +3529,22 @@ async def delete_document(document_id: str, background_tasks: BackgroundTasks, c
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Doküman silinemedi")
         
-        # Background tasks (asynchronous) - UI'yi engellemez
+        # Background tasks - OPTIMIZED FOR SEQUENTIAL DELETES
         if document_chunks:
-            # Chat history cleanup - background'da
+            # Chat cleanup - immediate (fast query)
             background_tasks.add_task(cleanup_chat_sessions, document_chunks)
             
-            # FAISS index update - background'da
-            background_tasks.add_task(update_faiss_index)
+            # FAISS update - DEBOUNCED (avoid sequential rebuilds)
+            background_tasks.add_task(debounced_faiss_update)
         
-        # Activity logging
-        await log_user_activity(
+        # Activity logging - NON-BLOCKING
+        asyncio.create_task(log_user_activity(
             current_user["id"], 
             "document_delete", 
             f"Deleted document: {filename} ({chunk_count} chunks)"
-        )
+        ))
         
-        # Hızlı response döndür (cleanup background'da devam eder)
+        # IMMEDIATE response (no await on background tasks)
         return DocumentDeleteResponse(
             message=f"'{filename}' dokümanı başarıyla silindi",
             document_id=document_id,
