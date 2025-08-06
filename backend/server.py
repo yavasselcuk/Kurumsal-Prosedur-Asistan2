@@ -3212,13 +3212,13 @@ async def add_rating(rating_request: RatingRequest, current_user: dict = Depends
     """Add rating and feedback for an AI response"""
     try:
         # Verify chat session exists
-        chat_session = await db.chat_sessions.find_one({"id": rating_request.chat_session_id})
+        chat_session = await db.chat_sessions.find_one({"session_id": rating_request.session_id})
         if not chat_session:
             raise HTTPException(status_code=404, detail="Chat session not found")
         
         # Check if user already rated this session
         existing_rating = await db.response_ratings.find_one({
-            "chat_session_id": rating_request.chat_session_id,
+            "session_id": rating_request.session_id,
             "user_id": current_user["id"]
         })
         
