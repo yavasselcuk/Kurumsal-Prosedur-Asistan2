@@ -61,6 +61,21 @@ function App() {
   const [messageRatings, setMessageRatings] = useState({});
   const [ratingStats, setRatingStats] = useState(null);
   
+  // Admin Dashboard için yeni state'ler
+  const [userStats, setUserStats] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [newUser, setNewUser] = useState({
+    username: '', email: '', full_name: '', password: '', role: 'viewer'
+  });
+  const [userForm, setUserForm] = useState({
+    full_name: '', email: '', role: '', is_active: true
+  });
+  
   // Doküman arama için yeni state'ler
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
