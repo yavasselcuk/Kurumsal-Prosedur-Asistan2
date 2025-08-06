@@ -500,17 +500,17 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Kullanıcı başarıyla oluşturuldu!');
+        showSuccess('Kullanıcı Oluşturuldu', `${user_data.username} kullanıcısı başarıyla oluşturuldu`);
         setShowCreateUser(false);
         setNewUser({ username: '', email: '', full_name: '', password: '', role: 'viewer' });
         fetchAllUsers();
         fetchUserStats();
       } else {
-        alert('Kullanıcı oluşturma hatası: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Kullanıcı Oluşturma Hatası', data.detail || 'Kullanıcı oluşturulurken bir hata oluştu');
       }
     } catch (error) {
       console.error('Create user error:', error);
-      alert('Kullanıcı oluşturma hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
@@ -530,18 +530,18 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Kullanıcı başarıyla güncellendi!');
+        showSuccess('Kullanıcı Güncellendi', 'Kullanıcı bilgileri başarıyla güncellendi');
         setShowEditUser(false);
         setEditingUser(null);
         setUserForm({ full_name: '', email: '', role: '', is_active: true });
         fetchAllUsers();
         fetchUserStats();
       } else {
-        alert('Kullanıcı güncelleme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Güncelleme Hatası', data.detail || 'Kullanıcı güncellenirken bir hata oluştu');
       }
     } catch (error) {
       console.error('Update user error:', error);
-      alert('Kullanıcı güncelleme hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
