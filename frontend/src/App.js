@@ -3052,14 +3052,6 @@ function App() {
                 </button>
               </div>
             </form>
-            
-            {/* Demo credentials info */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 text-center">
-                <strong>Demo Giriş:</strong><br />
-                Kullanıcı: admin | Şifre: admin123
-              </p>
-            </div>
           </div>
         </div>
       )}
