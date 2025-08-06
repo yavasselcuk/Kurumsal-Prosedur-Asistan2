@@ -293,6 +293,80 @@ function App() {
     }
   };
 
+  // Profile Management Functions
+  const updateProfile = async () => {
+    if (!isAuthenticated || !authToken) return;
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileForm)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setCurrentUser(data);
+        alert('Profil başarıyla güncellendi!');
+        setShowProfileModal(false);
+      } else {
+        alert('Profil güncelleme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      alert('Profil güncelleme hatası: ' + error.message);
+    }
+  };
+
+  const changePassword = async () => {
+    if (!isAuthenticated || !authToken) return;
+    
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      alert('Yeni şifreler eşleşmiyor!');
+      return;
+    }
+    
+    if (passwordForm.new_password.length < 6) {
+      alert('Yeni şifre en az 6 karakter olmalıdır!');
+      return;
+    }
+    
+    setPasswordLoading(true);
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_password: passwordForm.current_password,
+          new_password: passwordForm.new_password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Şifre başarıyla değiştirildi!');
+        setShowPasswordChangeModal(false);
+        setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      } else {
+        alert('Şifre değiştirme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      alert('Şifre değiştirme hatası: ' + error.message);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   // Admin Dashboard Functions
   const fetchUserStats = async () => {
     if (!isAuthenticated || !authToken || currentUser?.role !== 'admin') return;
