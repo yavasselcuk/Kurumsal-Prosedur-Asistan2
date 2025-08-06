@@ -1753,6 +1753,72 @@ async def move_documents_to_group(
         logger.error(f"Document move error: {str(e)}")
         raise HTTPException(status_code=500, detail="Dokümanlar taşınırken hata oluştu")
 
+# Q&A Endpoint
+@api_router.post("/ask-question", response_model=ChatResponse)
+async def ask_question(message: ChatMessage):
+    """AI'ya soru sor"""
+    try:
+        question = message.question.strip()
+        session_id = message.session_id or str(uuid.uuid4())
+        
+        if not question:
+            raise HTTPException(status_code=400, detail="Soru boş olamaz")
+        
+        # Search for relevant chunks
+        relevant_chunks = search_similar_chunks(question, top_k=5)
+        
+        context_found = len(relevant_chunks) > 0
+        context_chunks_count = len(relevant_chunks)
+        
+        if not context_found:
+            answer = "Üzgünüm, bu sorunuzla ilgili dokümanlarımızda bilgi bulunamadı. Lütfen sorunuzu farklı şekilde ifade etmeyi deneyin."
+            source_documents = []
+        else:
+            # Create context from relevant chunks
+            context_text = "\n\n".join([chunk['text'] for chunk in relevant_chunks[:3]])  # Use top 3 chunks
+            
+            # Get source documents information
+            source_doc_ids = list(set([chunk['document_id'] for chunk in relevant_chunks]))
+            source_documents = []
+            
+            for doc_id in source_doc_ids:
+                doc = await db.documents.find_one({"id": doc_id})
+                if doc:
+                    source_documents.append({
+                        'id': doc_id,
+                        'filename': doc.get('filename', 'Bilinmeyen dosya'),
+                        'group_name': doc.get('group_name', 'Grupsuz')
+                    })
+            
+            # Generate answer using AI
+            answer = await generate_answer_with_gemini(question, context_text)
+            
+            # Format answer with source information
+            answer = format_answer_with_sources(answer, source_documents)
+        
+        # Save chat session
+        chat_session = ChatSession(
+            session_id=session_id,
+            question=question,
+            answer=answer,
+            source_documents=[doc['filename'] for doc in source_documents],
+            timestamp=datetime.utcnow()
+        )
+        
+        await db.chat_sessions.insert_one(chat_session.dict())
+        
+        return ChatResponse(
+            answer=answer,
+            sources=[doc['filename'] for doc in source_documents],
+            session_id=session_id
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Question answering error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Soru yanıtlanırken hata oluştu")
+
 # Include the router
 app.include_router(api_router)
 
