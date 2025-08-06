@@ -2571,4 +2571,90 @@ function App() {
   );
 }
 
+// Rating Widget Component
+const RatingWidget = ({ sessionId, messageIndex, onRate, existingRating }) => {
+  const [showRating, setShowRating] = useState(false);
+  const [rating, setRating] = useState(existingRating?.rating || 0);
+  const [feedback, setFeedback] = useState(existingRating?.feedback || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      alert('Lütfen bir puan verin (1-5 yıldız)');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onRate(sessionId, sessionId, rating, feedback);
+      setShowRating(false);
+      alert('Değerlendirme başarıyla kaydedildi!');
+    } catch (error) {
+      console.error('Rating error:', error);
+    }
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowRating(!showRating)}
+        className={`bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded transition-colors ${
+          existingRating ? 'text-yellow-300' : ''
+        }`}
+        title={existingRating ? `Oyunuz: ${existingRating.rating} yıldız` : 'Bu yanıtı oylayın'}
+      >
+        {existingRating ? `⭐ ${existingRating.rating}` : '⭐ Oyla'}
+      </button>
+
+      {showRating && (
+        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-80 z-10">
+          <h4 className="text-sm font-medium text-gray-900 mb-3">Bu yanıtı değerlendirin</h4>
+          
+          <div className="flex items-center space-x-1 mb-3">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                onClick={() => setRating(star)}
+                className={`text-2xl ${
+                  star <= rating ? 'text-yellow-400' : 'text-gray-300'
+                } hover:text-yellow-400 transition-colors`}
+              >
+                ⭐
+              </button>
+            ))}
+            <span className="ml-2 text-sm text-gray-600">
+              {rating > 0 ? `${rating} yıldız` : 'Puan seçin'}
+            </span>
+          </div>
+
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder="İsteğe bağlı: Yorumunuzu yazın..."
+            className="w-full p-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            rows="3"
+          />
+
+          <div className="flex justify-between items-center mt-3">
+            <button
+              onClick={() => setShowRating(false)}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || rating === 0}
+              className="px-4 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {isSubmitting ? 'Gönderiliyor...' : 'Gönder'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default App;
