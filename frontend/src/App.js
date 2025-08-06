@@ -865,33 +865,38 @@ function App() {
   };
 
   const handleDeleteGroup = async (groupId, groupName) => {
-    if (!window.confirm(`'${groupName}' grubunu silmek istediğinizden emin misiniz? Gruptaki dokümanlar gruplandırılmamış duruma getirilecek.`)) {
+    const result = await showConfirm(
+      'Grup Silme',
+      `'${groupName}' grubunu silmek istediğinizden emin misiniz? Gruptaki dokümanlar gruplandırılmamış duruma getirilecek.`,
+      'Evet, Sil',
+      'İptal'
+    );
+    
+    if (!result.isConfirmed) {
       return;
     }
 
     try {
-      console.log('Deleting group:', groupId, groupName);
-      console.log('Backend URL:', backendUrl);
-      
       const response = await fetch(`${backendUrl}/api/groups/${groupId}?move_documents=true`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      console.log('Group delete response status:', response.status);
       const data = await response.json();
-      console.log('Group delete response data:', data);
 
       if (response.ok) {
         await fetchGroups();
         await fetchDocuments();
-        alert(data.message || 'Grup başarıyla silindi.');
+        showSuccess('Grup Silindi', data.message || `${groupName} grubu başarıyla silindi`);
       } else {
-        console.error('Group delete failed:', data);
-        alert(`Hata: ${data.detail || data.message || 'Bilinmeyen hata'}`);
+        showError('Grup Silme Hatası', data.detail || 'Grup silinirken bir hata oluştu');
       }
     } catch (error) {
       console.error('Group delete error:', error);
-      alert(`Grup silme hatası: ${error.message}`);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
@@ -901,7 +906,7 @@ function App() {
       // Dosya boyutu kontrolü (10MB)
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
-        alert('Dosya boyutu çok büyük. Maksimum 10MB olmalıdır.');
+        showError('Dosya Boyutu Hatası', 'Dosya boyutu çok büyük. Maksimum 10MB olmalıdır.');
         event.target.value = '';
         return;
       }
