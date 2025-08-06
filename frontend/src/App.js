@@ -49,6 +49,18 @@ function App() {
   const [faqAnalytics, setFaqAnalytics] = useState(null);
   const [generatingFaq, setGeneratingFaq] = useState(false);
   
+  // Authentication için yeni state'ler
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authToken, setAuthToken] = useState(localStorage.getItem('auth_token'));
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginLoading, setLoginLoading] = useState(false);
+  
+  // Rating için yeni state'ler  
+  const [messageRatings, setMessageRatings] = useState({});
+  const [ratingStats, setRatingStats] = useState(null);
+  
   // Doküman arama için yeni state'ler
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
