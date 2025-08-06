@@ -832,7 +832,7 @@ function App() {
 
   const handleMoveDocuments = async (targetGroupId) => {
     if (selectedDocuments.length === 0) {
-      alert('Lütfen taşınacak dokümanları seçin.');
+      showWarning('Seçim Gerekli', 'Lütfen taşınacak dokümanları seçin.');
       return;
     }
 
@@ -840,6 +840,7 @@ function App() {
       const response = await fetch(`${backendUrl}/api/documents/move`, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -847,6 +848,21 @@ function App() {
           group_id: targetGroupId
         }),
       });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showSuccess('Dokümanlar Taşındı', `${selectedDocuments.length} doküman başarıyla taşındı`);
+        setSelectedDocuments([]);
+        await fetchDocuments();
+      } else {
+        showError('Taşıma Hatası', data.detail || 'Dokümanlar taşınırken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Move documents error:', error);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+    }
+  };
 
       const data = await response.json();
 
