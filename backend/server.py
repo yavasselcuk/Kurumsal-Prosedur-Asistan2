@@ -3383,6 +3383,42 @@ async def get_low_rated_responses(current_user: dict = Depends(require_admin), t
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Low rated responses error: {str(e)}")
 
+# User Activity Logging
+async def log_user_activity(user_id: str, activity_type: str, details: str = None, request = None):
+    """Log user activity for audit purposes"""
+    try:
+        ip_address = None
+        user_agent = None
+        
+        if request:
+            # Extract client IP
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                ip_address = forwarded.split(",")[0].strip()
+            else:
+                ip_address = request.client.host if hasattr(request, 'client') else None
+            
+            # Extract user agent
+            user_agent = request.headers.get("User-Agent")
+        
+        activity = UserActivity(
+            user_id=user_id,
+            activity_type=activity_type,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        await db.user_activities.insert_one(activity.dict())
+    except Exception as e:
+        logging.error(f"Failed to log user activity: {str(e)}")
+
+async def require_editor_or_admin_for_user_creation(current_user: dict = Depends(get_current_active_user)) -> dict:
+    """Require editor or admin role for user creation"""
+    if current_user.get("role") not in ["admin", "editor"]:
+        raise HTTPException(status_code=403, detail="Editor or admin privileges required for user management")
+    return current_user
+
 # Include the router in the main app
 app.include_router(api_router)
 
