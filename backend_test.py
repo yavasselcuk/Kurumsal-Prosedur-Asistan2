@@ -8688,8 +8688,8 @@ class KPABackendTester:
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
         print("=" * 80)
         print(f"Testing backend at: {self.base_url}")
-        print("🔥 PRIORITY TESTS: JWT Authentication & AI Response Rating System")
-        print("📋 Testing: Authentication endpoints, rating system, role-based access control")
+        print("🔥 REVIEW REQUEST PRIORITY TESTS: Group Creation Fix, Bulk Upload, Mandatory Password Change")
+        print("📋 Testing: New features from review request first, then existing functionality")
         print()
         
         # Test basic connectivity first
@@ -8697,8 +8697,16 @@ class KPABackendTester:
             print("❌ Backend connectivity failed. Stopping tests.")
             return self.get_summary()
         
-        # 🔥 NEW PRIORITY TESTS FIRST - Authentication & Rating System
-        print("🔥 NEW PRIORITY TESTS - AUTHENTICATION & RATING SYSTEM:")
+        # 🔥 NEW FEATURES FROM REVIEW REQUEST (HIGHEST PRIORITY)
+        print("🔥 REVIEW REQUEST PRIORITY TESTS:")
+        print("-" * 65)
+        self.test_group_creation_authentication_fix()
+        self.test_bulk_document_upload()
+        self.test_mandatory_password_change_system()
+        print()
+        
+        # 🔥 EXISTING PRIORITY TESTS - Authentication & Rating System
+        print("🔥 EXISTING PRIORITY TESTS - AUTHENTICATION & RATING SYSTEM:")
         print("-" * 65)
         self.test_jwt_authentication_system()
         self.test_ai_response_rating_system()
