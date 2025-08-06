@@ -1155,7 +1155,38 @@ function App() {
               </div>
             </div>
             
-            {systemStatus && (
+            {/* Authentication Section */}
+            <div className="flex items-center space-x-4">
+              {isAuthenticated && currentUser ? (
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{currentUser.full_name}</p>
+                    <p className="text-xs text-gray-600">{currentUser.role === 'admin' ? 'Yönetici' : currentUser.role === 'editor' ? 'Editör' : 'Görüntüleyici'}</p>
+                  </div>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                    currentUser.role === 'admin' ? 'bg-red-500' : 
+                    currentUser.role === 'editor' ? 'bg-blue-500' : 'bg-green-500'
+                  }`}>
+                    {currentUser.full_name?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    Çıkış
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Giriş Yap
+                </button>
+              )}
+            </div>
+            
+            {systemStatus && isAuthenticated && (
               <div className="hidden md:flex items-center space-x-4 text-sm">
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${systemStatus.faiss_index_ready ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
