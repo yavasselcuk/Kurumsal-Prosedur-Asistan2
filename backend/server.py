@@ -1623,9 +1623,20 @@ async def login(user_credentials: UserLogin):
         raise HTTPException(status_code=500, detail=f"Login error: {str(e)}")
 
 @api_router.post("/auth/create-user", response_model=UserInfo)
-async def create_user(user_data: UserCreate, current_user: dict = Depends(require_admin)):
-    """Create new user (admin only)"""
+async def create_user(user_data: UserCreate, current_user: dict = Depends(require_editor_or_admin)):
+    """Create new user (admin can create any role, editor can only create viewers)"""
     try:
+        # Check permissions based on role
+        if current_user["role"] == "editor":
+            # Editors can only create viewers
+            if user_data.role not in ["viewer"]:
+                raise HTTPException(status_code=403, detail="Editors can only create viewer accounts")
+        
+        # Admins can create any role
+        if current_user["role"] == "admin":
+            if user_data.role not in ["admin", "editor", "viewer"]:
+                raise HTTPException(status_code=400, detail="Invalid role. Must be admin, editor, or viewer")
+        
         # Check if username or email already exists
         existing_username = await db.users.find_one({"username": user_data.username})
         if existing_username:
@@ -1634,10 +1645,6 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(requir
         existing_email = await db.users.find_one({"email": user_data.email})
         if existing_email:
             raise HTTPException(status_code=400, detail="Email already exists")
-        
-        # Validate role
-        if user_data.role not in ["admin", "editor", "viewer"]:
-            raise HTTPException(status_code=400, detail="Invalid role. Must be admin, editor, or viewer")
         
         # Create new user
         new_user = User(
@@ -1651,6 +1658,13 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(requir
         
         # Insert into database
         await db.users.insert_one(new_user.dict())
+        
+        # Log activity
+        await log_user_activity(
+            current_user["id"], 
+            "user_create", 
+            f"Created new {user_data.role} user: {user_data.username}"
+        )
         
         return UserInfo(
             id=new_user.id,
