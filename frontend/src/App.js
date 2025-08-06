@@ -1279,7 +1279,50 @@ function App() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'chat' ? (
+        {!isAuthenticated ? (
+          /* Login Required Message */
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-white text-3xl">🔒</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Kurumsal Prosedür Asistanı'na Hoş Geldiniz</h2>
+            <p className="text-gray-600 mb-8">
+              AI destekli doküman soru-cevap sistemi ile prosedürlerinize hızlı erişim sağlayın.<br />
+              Sistemi kullanabilmek için giriş yapmanız gerekmektedir.
+            </p>
+            <button
+              onClick={() => setShowLogin(true)}
+              className="px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-lg font-medium"
+            >
+              Giriş Yap
+            </button>
+            
+            {/* Features Overview */}
+            <div className="grid md:grid-cols-3 gap-6 mt-12">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <span className="text-blue-600 text-xl">💬</span>
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">Akıllı Q&A</h3>
+                <p className="text-sm text-gray-600">AI ile dokümanlarınızdan anında yanıt alın</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <span className="text-green-600 text-xl">📁</span>
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">Doküman Yönetimi</h3>
+                <p className="text-sm text-gray-600">Word dosyalarınızı yükleyin ve organize edin</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <span className="text-purple-600 text-xl">🔍</span>
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">Gelişmiş Arama</h3>
+                <p className="text-sm text-gray-600">Dokümanlar içinde detaylı arama yapın</p>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'chat' ? (
           /* Chat Tab */
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Chat Area */}
