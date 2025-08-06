@@ -99,6 +99,20 @@ function App() {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [searchStatistics, setSearchStatistics] = useState(null);
   
+  // Zorunlu şifre değişikliği için yeni state'ler
+  const [showMandatoryPasswordChange, setShowMandatoryPasswordChange] = useState(false);
+  const [mandatoryPasswordForm, setMandatoryPasswordForm] = useState({
+    current_password: '', new_password: '', confirm_password: ''
+  });
+  const [mandatoryPasswordLoading, setMandatoryPasswordLoading] = useState(false);
+  
+  // Bulk upload için yeni state'ler
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [bulkUploadResults, setBulkUploadResults] = useState([]);
+  const [bulkUploadLoading, setBulkUploadLoading] = useState(false);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState(0);
+  
   const chatEndRef = useRef(null);
 
   // SweetAlert Helper Functions
