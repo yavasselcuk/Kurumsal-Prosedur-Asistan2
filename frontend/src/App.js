@@ -256,6 +256,11 @@ function App() {
         setCurrentUser(userData);
         setIsAuthenticated(true);
         setAuthToken(token);
+        
+        // Check for mandatory password change
+        if (userData.must_change_password) {
+          setShowMandatoryPasswordChange(true);
+        }
       } else {
         // Token expired or invalid
         localStorage.removeItem('auth_token');
