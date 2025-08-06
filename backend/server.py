@@ -1691,6 +1691,333 @@ async def get_all_users(current_user: dict = Depends(require_admin)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
 
+# Enhanced User Management Endpoints
+@api_router.get("/auth/users/stats", response_model=UserStats)
+async def get_user_stats(current_user: dict = Depends(require_admin)):
+    """Get user statistics (admin only)"""
+    try:
+        # Get user counts by role and status
+        all_users = await db.users.find({}, {"password_hash": 0}).to_list(None)
+        
+        total_users = len(all_users)
+        active_users = len([u for u in all_users if u.get("is_active", False)])
+        inactive_users = total_users - active_users
+        
+        admin_count = len([u for u in all_users if u.get("role") == "admin"])
+        editor_count = len([u for u in all_users if u.get("role") == "editor"])
+        viewer_count = len([u for u in all_users if u.get("role") == "viewer"])
+        
+        # Get recent activities
+        recent_activities = await db.user_activities.find({}).sort("created_at", -1).limit(10).to_list(10)
+        
+        return UserStats(
+            total_users=total_users,
+            active_users=active_users,
+            inactive_users=inactive_users,
+            admin_count=admin_count,
+            editor_count=editor_count,
+            viewer_count=viewer_count,
+            recent_activities=[
+                {
+                    "user_id": activity.get("user_id"),
+                    "activity_type": activity.get("activity_type"),
+                    "details": activity.get("details"),
+                    "created_at": activity.get("created_at"),
+                    "ip_address": activity.get("ip_address")
+                } for activity in recent_activities
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user stats: {str(e)}")
+
+@api_router.put("/auth/users/{user_id}")
+async def update_user(user_id: str, user_update: UserUpdate, current_user: dict = Depends(require_admin)):
+    """Update user information (admin only)"""
+    try:
+        # Check if user exists
+        existing_user = await db.users.find_one({"id": user_id})
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Prevent admin from deactivating themselves
+        if user_id == current_user["id"] and user_update.is_active is False:
+            raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        
+        # Prevent admin from demoting themselves from admin role
+        if user_id == current_user["id"] and user_update.role and user_update.role != "admin":
+            raise HTTPException(status_code=400, detail="Cannot change your own admin role")
+        
+        # Validate role if provided
+        if user_update.role and user_update.role not in ["admin", "editor", "viewer"]:
+            raise HTTPException(status_code=400, detail="Invalid role. Must be admin, editor, or viewer")
+        
+        # Check email uniqueness if email is being updated
+        if user_update.email:
+            existing_email = await db.users.find_one({"email": user_update.email, "id": {"$ne": user_id}})
+            if existing_email:
+                raise HTTPException(status_code=400, detail="Email already exists")
+        
+        # Build update data
+        update_data = {}
+        if user_update.full_name is not None:
+            update_data["full_name"] = user_update.full_name
+        if user_update.email is not None:
+            update_data["email"] = user_update.email
+        if user_update.role is not None:
+            update_data["role"] = user_update.role
+        if user_update.is_active is not None:
+            update_data["is_active"] = user_update.is_active
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        # Update user
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="User not found or no changes made")
+        
+        # Log activity
+        await log_user_activity(
+            current_user["id"], 
+            "user_update", 
+            f"Updated user {existing_user['username']}: {', '.join(update_data.keys())}"
+        )
+        
+        # Return updated user info
+        updated_user = await db.users.find_one({"id": user_id}, {"password_hash": 0, "_id": 0})
+        return updated_user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"User update error: {str(e)}")
+
+@api_router.delete("/auth/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(require_admin)):
+    """Delete user (admin only)"""
+    try:
+        # Check if user exists
+        user_to_delete = await db.users.find_one({"id": user_id})
+        if not user_to_delete:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Prevent admin from deleting themselves
+        if user_id == current_user["id"]:
+            raise HTTPException(status_code=400, detail="Cannot delete your own account")
+        
+        # Delete user
+        result = await db.users.delete_one({"id": user_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Log activity
+        await log_user_activity(
+            current_user["id"], 
+            "user_delete", 
+            f"Deleted user {user_to_delete['username']}"
+        )
+        
+        return {"message": f"User {user_to_delete['username']} deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"User deletion error: {str(e)}")
+
+@api_router.post("/auth/users/bulk-update")
+async def bulk_update_users(bulk_update: BulkUserUpdate, current_user: dict = Depends(require_admin)):
+    """Bulk update users (admin only)"""
+    try:
+        if not bulk_update.user_ids:
+            raise HTTPException(status_code=400, detail="No user IDs provided")
+        
+        # Prevent admin from affecting themselves in bulk operations
+        if current_user["id"] in bulk_update.user_ids:
+            raise HTTPException(status_code=400, detail="Cannot perform bulk operations on your own account")
+        
+        result_count = 0
+        
+        if bulk_update.action == "activate":
+            result = await db.users.update_many(
+                {"id": {"$in": bulk_update.user_ids}},
+                {"$set": {"is_active": True}}
+            )
+            result_count = result.modified_count
+            
+        elif bulk_update.action == "deactivate":
+            result = await db.users.update_many(
+                {"id": {"$in": bulk_update.user_ids}},
+                {"$set": {"is_active": False}}
+            )
+            result_count = result.modified_count
+            
+        elif bulk_update.action == "change_role":
+            if not bulk_update.new_role or bulk_update.new_role not in ["admin", "editor", "viewer"]:
+                raise HTTPException(status_code=400, detail="Valid new_role required for role change")
+                
+            result = await db.users.update_many(
+                {"id": {"$in": bulk_update.user_ids}},
+                {"$set": {"role": bulk_update.new_role}}
+            )
+            result_count = result.modified_count
+            
+        elif bulk_update.action == "delete":
+            result = await db.users.delete_many({"id": {"$in": bulk_update.user_ids}})
+            result_count = result.deleted_count
+            
+        else:
+            raise HTTPException(status_code=400, detail="Invalid action. Must be activate, deactivate, change_role, or delete")
+        
+        # Log activity
+        await log_user_activity(
+            current_user["id"], 
+            "bulk_user_update", 
+            f"Bulk {bulk_update.action} on {len(bulk_update.user_ids)} users, {result_count} affected"
+        )
+        
+        return {
+            "message": f"Bulk {bulk_update.action} completed", 
+            "affected_count": result_count,
+            "requested_count": len(bulk_update.user_ids)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bulk update error: {str(e)}")
+
+@api_router.get("/auth/profile", response_model=UserInfo)
+async def get_profile(current_user: dict = Depends(get_current_active_user)):
+    """Get current user profile"""
+    return UserInfo(
+        id=current_user["id"],
+        username=current_user["username"],
+        email=current_user["email"],
+        full_name=current_user["full_name"],
+        role=current_user["role"],
+        is_active=current_user["is_active"],
+        created_at=current_user["created_at"],
+        last_login=current_user.get("last_login")
+    )
+
+@api_router.put("/auth/profile")
+async def update_profile(profile_update: ProfileUpdate, current_user: dict = Depends(get_current_active_user)):
+    """Update current user profile"""
+    try:
+        # Check email uniqueness
+        existing_email = await db.users.find_one({"email": profile_update.email, "id": {"$ne": current_user["id"]}})
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
+        # Update profile
+        result = await db.users.update_one(
+            {"id": current_user["id"]},
+            {"$set": {
+                "full_name": profile_update.full_name,
+                "email": profile_update.email
+            }}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="No changes made")
+        
+        # Log activity
+        await log_user_activity(current_user["id"], "profile_update", "Updated profile information")
+        
+        # Return updated profile
+        updated_user = await db.users.find_one({"id": current_user["id"]}, {"password_hash": 0, "_id": 0})
+        return UserInfo(
+            id=updated_user["id"],
+            username=updated_user["username"],
+            email=updated_user["email"],
+            full_name=updated_user["full_name"],
+            role=updated_user["role"],
+            is_active=updated_user["is_active"],
+            created_at=updated_user["created_at"],
+            last_login=updated_user.get("last_login")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Profile update error: {str(e)}")
+
+@api_router.post("/auth/change-password")
+async def change_password(password_change: PasswordChange, current_user: dict = Depends(get_current_active_user)):
+    """Change current user password"""
+    try:
+        # Verify current password
+        if not verify_password(password_change.current_password, current_user["password_hash"]):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Update password
+        new_password_hash = get_password_hash(password_change.new_password)
+        result = await db.users.update_one(
+            {"id": current_user["id"]},
+            {"$set": {"password_hash": new_password_hash}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="Password update failed")
+        
+        # Log activity
+        await log_user_activity(current_user["id"], "password_change", "Changed password")
+        
+        return {"message": "Password changed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Password change error: {str(e)}")
+
+@api_router.get("/auth/activities")
+async def get_user_activities(current_user: dict = Depends(get_current_active_user), limit: int = 50):
+    """Get current user's activity log"""
+    try:
+        activities = await db.user_activities.find(
+            {"user_id": current_user["id"]}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return {
+            "activities": activities,
+            "count": len(activities),
+            "user_id": current_user["id"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Activities fetch error: {str(e)}")
+
+@api_router.get("/auth/all-activities")
+async def get_all_activities(current_user: dict = Depends(require_admin), limit: int = 100):
+    """Get all user activities (admin only)"""
+    try:
+        activities = await db.user_activities.find({}).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        # Enrich with user information
+        enriched_activities = []
+        for activity in activities:
+            user = await db.users.find_one({"id": activity["user_id"]}, {"username": 1, "full_name": 1})
+            enriched_activity = {
+                **activity,
+                "username": user["username"] if user else "Unknown",
+                "full_name": user["full_name"] if user else "Unknown User"
+            }
+            enriched_activities.append(enriched_activity)
+        
+        return {
+            "activities": enriched_activities,
+            "count": len(enriched_activities),
+            "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"All activities fetch error: {str(e)}")
+
 @api_router.post("/auth/password-reset-request")
 async def request_password_reset(request: PasswordResetRequest):
     """Request password reset (send reset token to email)"""
