@@ -307,7 +307,7 @@ function App() {
   // Rating functions
   const addRating = async (sessionId, chatSessionId, rating, feedback = '') => {
     if (!isAuthenticated || !authToken) {
-      alert('Oylama yapabilmek için giriş yapmanız gerekir');
+      showWarning('Giriş Gerekli', 'Oylama yapabilmek için giriş yapmanız gerekir');
       return;
     }
 
@@ -340,7 +340,7 @@ function App() {
       }
     } catch (error) {
       console.error('Rating error:', error);
-      alert('Oylama hatası: ' + error.message);
+      showError('Oylama Hatası', error.message);
     }
   };
 
