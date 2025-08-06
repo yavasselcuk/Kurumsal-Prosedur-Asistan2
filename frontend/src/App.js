@@ -954,6 +954,9 @@ function App() {
         setSelectedFile(null);
         document.getElementById('fileInput').value = '';
         
+        // Success notification
+        showSuccess('Doküman Yüklendi', `${data.message} (${data.file_size}, ${data.chunk_count} parça)`);
+        
         // Dokümanları ve sistem durumunu güncelle
         setTimeout(() => {
           fetchDocuments();
@@ -962,9 +965,11 @@ function App() {
         }, 2000);
       } else {
         setUploadProgress(`❌ Hata: ${data.detail}`);
+        showError('Yükleme Hatası', data.detail || 'Doküman yüklenirken bir hata oluştu');
       }
     } catch (error) {
       setUploadProgress(`❌ Yükleme hatası: ${error.message}`);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
@@ -972,7 +977,7 @@ function App() {
     e.preventDefault();
     
     if (!question.trim()) {
-      alert('Lütfen bir soru yazın.');
+      showWarning('Soru Giriniz', 'Lütfen bir soru yazın.');
       return;
     }
 
