@@ -3063,6 +3063,175 @@ function App() {
         </div>
       )}
 
+      {/* Create User Modal */}
+      {showCreateUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">➕ Yeni Kullanıcı Oluştur</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kullanıcı Adı</label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Kullanıcı adı"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Email adresi"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label>
+                <input
+                  type="text"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ad Soyad"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Şifre</label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Şifre"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="viewer">Görüntüleyici</option>
+                  <option value="editor">Editör</option>
+                  <option value="admin">Yönetici</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center space-x-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateUser(false);
+                  setNewUser({ username: '', email: '', full_name: '', password: '', role: 'viewer' });
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                İptal
+              </button>
+              <button
+                onClick={createUser}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                Oluştur
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUser && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">✏️ Kullanıcı Düzenle</h3>
+            
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Kullanıcı:</strong> @{editingUser.username}
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label>
+                <input
+                  type="text"
+                  value={userForm.full_name}
+                  onChange={(e) => setUserForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
+                <select
+                  value={userForm.role}
+                  onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  disabled={editingUser.id === currentUser?.id}
+                >
+                  <option value="viewer">Görüntüleyici</option>
+                  <option value="editor">Editör</option>
+                  <option value="admin">Yönetici</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={userForm.is_active}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, is_active: e.target.checked }))}
+                    disabled={editingUser.id === currentUser?.id}
+                    className="rounded mr-2"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Aktif Kullanıcı</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center space-x-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditUser(false);
+                  setEditingUser(null);
+                  setUserForm({ full_name: '', email: '', role: '', is_active: true });
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => updateUser(editingUser.id)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                Güncelle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
