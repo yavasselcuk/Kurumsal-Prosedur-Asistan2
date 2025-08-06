@@ -3581,7 +3581,13 @@ const RatingWidget = ({ sessionId, messageIndex, onRate, existingRating }) => {
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      alert('Lütfen bir puan verin (1-5 yıldız)');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Puan Seçin',
+        text: 'Lütfen bir puan verin (1-5 yıldız)',
+        confirmButtonText: 'Tamam',
+        confirmButtonColor: '#f59e0b'
+      });
       return;
     }
 
@@ -3589,7 +3595,15 @@ const RatingWidget = ({ sessionId, messageIndex, onRate, existingRating }) => {
     try {
       await onRate(sessionId, sessionId, rating, feedback);
       setShowRating(false);
-      alert('Değerlendirme başarıyla kaydedildi!');
+      Swal.fire({
+        icon: 'success',
+        title: 'Değerlendirme Kaydedildi',
+        text: 'Değerlendirmeniz başarıyla kaydedildi. Teşekkür ederiz!',
+        confirmButtonText: 'Tamam',
+        confirmButtonColor: '#3b82f6',
+        timer: 3000,
+        timerProgressBar: true
+      });
     } catch (error) {
       console.error('Rating error:', error);
     }
