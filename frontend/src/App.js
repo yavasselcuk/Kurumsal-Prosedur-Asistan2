@@ -1034,8 +1034,15 @@ function App() {
     }
   };
 
-  const handleDeleteDocument = async (documentId) => {
-    if (!window.confirm('Bu dokümanı silmek istediğinizden emin misiniz?')) {
+  const handleDeleteDocument = async (documentId, filename = 'Bu doküman') => {
+    const result = await showConfirm(
+      'Doküman Silme',
+      `'${filename}' dosyasını kalıcı olarak silmek istediğinizden emin misiniz?`,
+      'Evet, Sil',
+      'İptal'
+    );
+    
+    if (!result.isConfirmed) {
       return;
     }
 
