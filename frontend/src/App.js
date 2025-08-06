@@ -1612,6 +1612,142 @@ function App() {
     }, 150);
   };
 
+  // Bulk Upload Functions
+  const handleBulkFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    
+    // File format validation
+    const invalidFiles = files.filter(file => {
+      const extension = file.name.toLowerCase().split('.').pop();
+      return !['doc', 'docx'].includes(extension);
+    });
+    
+    if (invalidFiles.length > 0) {
+      showError('Dosya Formatı Hatası', `Bu dosyalar desteklenmiyor: ${invalidFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+    
+    // File count limit
+    if (files.length > 20) {
+      showError('Çok Fazla Dosya', 'Tek seferde maksimum 20 dosya yükleyebilirsiniz.');
+      return;
+    }
+    
+    // File size validation (10MB per file)
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      showError('Dosya Boyutu Hatası', `Bu dosyalar çok büyük (>10MB): ${oversizedFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+    
+    setSelectedFiles(files);
+  };
+
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result.split(',')[1]); // Remove data:... prefix
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleBulkUpload = async () => {
+    if (selectedFiles.length === 0) {
+      showWarning('Dosya Seçimi', 'Lütfen yüklenecek dosyaları seçin.');
+      return;
+    }
+
+    setBulkUploadLoading(true);
+    setBulkUploadProgress(0);
+    setBulkUploadResults([]);
+
+    try {
+      // Convert all files to base64
+      const filesData = [];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        setBulkUploadProgress(Math.round((i / selectedFiles.length) * 30)); // 30% for file processing
+        
+        try {
+          const base64Content = await convertFileToBase64(file);
+          filesData.push({
+            filename: file.name,
+            content: base64Content,
+            group_id: selectedGroup && selectedGroup !== 'all' && selectedGroup !== 'ungrouped' ? selectedGroup : null
+          });
+        } catch (error) {
+          console.error(`Error processing file ${file.name}:`, error);
+        }
+      }
+
+      setBulkUploadProgress(40); // File processing complete
+
+      // Send bulk upload request
+      const response = await fetch(`${backendUrl}/api/bulk-upload-documents`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          files: filesData,
+          group_id: selectedGroup && selectedGroup !== 'all' && selectedGroup !== 'ungrouped' ? selectedGroup : null
+        })
+      });
+
+      setBulkUploadProgress(70); // Upload request sent
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setBulkUploadResults(data.results);
+        setBulkUploadProgress(100);
+        
+        // Show summary
+        const successCount = data.successful_uploads;
+        const failedCount = data.failed_uploads;
+        const totalCount = data.total_files;
+        
+        if (failedCount === 0) {
+          showSuccess(
+            'Toplu Yükleme Tamamlandı', 
+            `${successCount} dosya başarıyla yüklendi! (${data.processing_time.toFixed(1)}s)`
+          );
+        } else {
+          showWarning(
+            'Toplu Yükleme Tamamlandı', 
+            `${successCount}/${totalCount} dosya başarıyla yüklendi. ${failedCount} dosyada hata oluştu.`
+          );
+        }
+        
+        // Refresh documents and system status
+        setTimeout(() => {
+          fetchDocuments();
+          fetchSystemStatus();
+          fetchGroups();
+        }, 2000);
+        
+      } else {
+        showError('Toplu Yükleme Hatası', data.detail || 'Toplu yükleme sırasında hata oluştu');
+        setBulkUploadProgress(0);
+      }
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+      setBulkUploadProgress(0);
+    } finally {
+      setBulkUploadLoading(false);
+    }
+  };
+
+  const clearBulkUpload = () => {
+    setSelectedFiles([]);
+    setBulkUploadResults([]);
+    setBulkUploadProgress(0);
+    document.getElementById('bulkFileInput').value = '';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
