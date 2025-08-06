@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import Swal from 'sweetalert2';
 import SearchTab from './components/SearchTab';
 import './App.css';
 
