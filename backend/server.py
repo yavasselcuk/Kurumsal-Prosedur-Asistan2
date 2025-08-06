@@ -3827,6 +3827,9 @@ async def startup_event():
     try:
         await update_faiss_index()
         
+        # MongoDB indexes oluştur (performance optimization)
+        await create_database_indexes()
+        
         # İlk admin kullanıcıyı oluştur (eğer yoksa)
         admin_exists = await db.users.find_one({"role": "admin"})
         if not admin_exists:
@@ -3843,6 +3846,38 @@ async def startup_event():
         logger.info("Kurumsal Prosedür Asistanı başlatıldı")
     except Exception as e:
         logger.error(f"Başlangıç hatası: {str(e)}")
+
+async def create_database_indexes():
+    """Database performance için index'ler oluştur"""
+    try:
+        # Documents collection indexes
+        await db.documents.create_index([("id", 1)], unique=True)
+        await db.documents.create_index([("upload_status", 1)])
+        await db.documents.create_index([("group_id", 1)])
+        
+        # Chat sessions indexes  
+        await db.chat_sessions.create_index([("session_id", 1)])
+        await db.chat_sessions.create_index([("created_at", -1)])
+        await db.chat_sessions.create_index([("source_documents", 1)])
+        
+        # Users indexes
+        await db.users.create_index([("username", 1)], unique=True)
+        await db.users.create_index([("email", 1)], unique=True)
+        await db.users.create_index([("role", 1)])
+        
+        # Response ratings indexes
+        await db.response_ratings.create_index([("chat_session_id", 1)])
+        await db.response_ratings.create_index([("user_id", 1)])
+        await db.response_ratings.create_index([("created_at", -1)])
+        
+        # User activities indexes
+        await db.user_activities.create_index([("user_id", 1)])
+        await db.user_activities.create_index([("created_at", -1)])
+        
+        logger.info("Database indexes oluşturuldu (performance optimization)")
+        
+    except Exception as e:
+        logger.error(f"Index oluşturma hatası: {str(e)}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
