@@ -3352,6 +3352,135 @@ function App() {
         </div>
       )}
 
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">👤 Profil Düzenle</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ad Soyad</label>
+                <input
+                  type="text"
+                  value={profileForm.full_name}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  <strong>Kullanıcı Adı:</strong> @{currentUser?.username}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Rol:</strong> {currentUser?.role === 'admin' ? 'Yönetici' : currentUser?.role === 'editor' ? 'Editör' : 'Görüntüleyici'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center space-x-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowProfileModal(false);
+                  setProfileForm({ full_name: '', email: '' });
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                İptal
+              </button>
+              <button
+                onClick={updateProfile}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                Güncelle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Change Modal */}
+      {showPasswordChangeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">🔒 Şifre Değiştir</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mevcut Şifre</label>
+                <input
+                  type="password"
+                  value={passwordForm.current_password}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Mevcut şifrenizi girin"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre</label>
+                <input
+                  type="password"
+                  value={passwordForm.new_password}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Yeni şifrenizi girin (min 6 karakter)"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Yeni Şifre (Tekrar)</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirm_password}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm_password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Yeni şifrenizi tekrar girin"
+                />
+              </div>
+              
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Şifre Kuralları:</strong>
+                  <br />• En az 6 karakter uzunluğunda olmalıdır
+                  <br />• Güvenlik için karmaşık bir şifre seçin
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center space-x-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowPasswordChangeModal(false);
+                  setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                İptal
+              </button>
+              <button
+                onClick={changePassword}
+                disabled={passwordLoading}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              >
+                {passwordLoading ? 'Değiştiriliyor...' : 'Şifreyi Değiştir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
