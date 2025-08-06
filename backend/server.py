@@ -273,6 +273,44 @@ class PasswordReset(BaseModel):
     reset_token: str
     new_password: str
 
+# Enhanced User Management Models
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ProfileUpdate(BaseModel):
+    full_name: str
+    email: str
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class BulkUserUpdate(BaseModel):
+    user_ids: List[str]
+    action: str  # "activate", "deactivate", "change_role", "delete"
+    new_role: Optional[str] = None
+
+class UserActivity(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    activity_type: str  # login, logout, document_upload, etc.
+    details: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class UserStats(BaseModel):
+    total_users: int
+    active_users: int
+    inactive_users: int
+    admin_count: int
+    editor_count: int
+    viewer_count: int
+    recent_activities: List[dict]
+
 # AI Response Rating Models
 class ResponseRating(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
