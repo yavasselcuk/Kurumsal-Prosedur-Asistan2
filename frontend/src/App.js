@@ -280,12 +280,13 @@ function App() {
         setIsAuthenticated(true);
         setShowLogin(false);
         setLoginForm({ username: '', password: '' });
+        showSuccess('Giriş Başarılı', `Hoş geldiniz, ${data.user_info.full_name}!`);
       } else {
-        alert('Giriş başarısız: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Giriş Başarısız', data.detail || 'Kullanıcı adı veya şifre hatalı');
       }
     } catch (error) {
       console.error('Login error:', error);
-      alert('Giriş hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
 
     setLoginLoading(false);
