@@ -1275,6 +1275,22 @@ function App() {
           >
             📁 Doküman Yönetimi
           </button>
+          {isAuthenticated && currentUser?.role === 'admin' && (
+            <button
+              onClick={() => {
+                setActiveTab('admin');
+                fetchUserStats();
+                fetchAllUsers();
+              }}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'admin'
+                  ? 'bg-red-500 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              ⚙️ Yönetim
+            </button>
+          )}
         </div>
       </div>
 
