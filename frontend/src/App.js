@@ -277,6 +277,8 @@ function App() {
   };
 
   const fetchDocuments = async () => {
+    if (!isAuthenticated || !authToken) return;
+    
     try {
       let url = `${backendUrl}/api/documents`;
       
@@ -285,7 +287,12 @@ function App() {
         url += `?group_id=${selectedGroup}`;
       }
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       
       if (response.ok) {
