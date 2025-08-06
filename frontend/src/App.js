@@ -864,22 +864,6 @@ function App() {
     }
   };
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSelectedDocuments([]);
-        setShowMoveModal(false);
-        fetchDocuments();
-        fetchGroups();
-        alert(data.message);
-      } else {
-        alert(`Hata: ${data.detail}`);
-      }
-    } catch (error) {
-      alert(`Taşıma hatası: ${error.message}`);
-    }
-  };
-
   const handleDeleteGroup = async (groupId, groupName) => {
     if (!window.confirm(`'${groupName}' grubunu silmek istediğinizden emin misiniz? Gruptaki dokümanlar gruplandırılmamış duruma getirilecek.`)) {
       return;
