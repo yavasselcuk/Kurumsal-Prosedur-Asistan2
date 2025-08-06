@@ -101,6 +101,63 @@ function App() {
   
   const chatEndRef = useRef(null);
 
+  // SweetAlert Helper Functions
+  const showSuccess = (title, text) => {
+    return Swal.fire({
+      icon: 'success',
+      title: title,
+      text: text,
+      confirmButtonText: 'Tamam',
+      confirmButtonColor: '#3b82f6',
+      timer: 3000,
+      timerProgressBar: true
+    });
+  };
+
+  const showError = (title, text) => {
+    return Swal.fire({
+      icon: 'error',
+      title: title,
+      text: text,
+      confirmButtonText: 'Tamam',
+      confirmButtonColor: '#ef4444'
+    });
+  };
+
+  const showConfirm = (title, text, confirmButtonText = 'Evet', cancelButtonText = 'İptal') => {
+    return Swal.fire({
+      icon: 'question',
+      title: title,
+      text: text,
+      showCancelButton: true,
+      confirmButtonText: confirmButtonText,
+      cancelButtonText: cancelButtonText,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#6b7280',
+      reverseButtons: true
+    });
+  };
+
+  const showInfo = (title, text) => {
+    return Swal.fire({
+      icon: 'info',
+      title: title,
+      text: text,
+      confirmButtonText: 'Tamam',
+      confirmButtonColor: '#3b82f6'
+    });
+  };
+
+  const showWarning = (title, text) => {
+    return Swal.fire({
+      icon: 'warning',
+      title: title,
+      text: text,
+      confirmButtonText: 'Tamam',
+      confirmButtonColor: '#f59e0b'
+    });
+  };
+
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
   useEffect(() => {
