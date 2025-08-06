@@ -7916,6 +7916,773 @@ class KPABackendTester:
                 None
             )
 
+    def test_group_creation_authentication_fix(self):
+        """🔥 NEW FEATURE: Test Group Creation Authentication Fix"""
+        try:
+            print("   🔐 Testing Group Creation Authentication Fix...")
+            
+            # First, login to get authentication token
+            login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            login_response = self.session.post(f"{self.base_url}/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                login_result = login_response.json()
+                access_token = login_result.get("access_token")
+                
+                if access_token:
+                    # Set authorization header
+                    headers = {"Authorization": f"Bearer {access_token}"}
+                    
+                    # Test group creation with authentication
+                    group_data = {
+                        "name": "Test Group Authentication Fix",
+                        "description": "Testing authentication header fix for group creation",
+                        "color": "#ff5722"
+                    }
+                    
+                    create_response = self.session.post(
+                        f"{self.base_url}/groups", 
+                        json=group_data, 
+                        headers=headers
+                    )
+                    
+                    if create_response.status_code == 200:
+                        group_result = create_response.json()
+                        
+                        self.log_test(
+                            "Group Creation Authentication Fix",
+                            True,
+                            f"✅ Group creation with authentication WORKING! No 'No authenticated' error. Group created: {group_result.get('message', 'Success')}",
+                            group_result
+                        )
+                        
+                        # Test with different user roles
+                        self.test_group_creation_with_different_roles(headers)
+                        
+                    elif create_response.status_code == 401:
+                        error_data = create_response.json()
+                        error_detail = error_data.get("detail", "")
+                        
+                        if "No authenticated" in error_detail:
+                            self.log_test(
+                                "Group Creation Authentication Fix",
+                                False,
+                                f"❌ AUTHENTICATION BUG STILL EXISTS! 'No authenticated' error still occurring: {error_detail}",
+                                error_data
+                            )
+                        else:
+                            self.log_test(
+                                "Group Creation Authentication Fix",
+                                False,
+                                f"❌ Authentication failed with different error: {error_detail}",
+                                error_data
+                            )
+                    else:
+                        self.log_test(
+                            "Group Creation Authentication Fix",
+                            False,
+                            f"❌ Group creation failed with HTTP {create_response.status_code}: {create_response.text}",
+                            create_response.text
+                        )
+                else:
+                    self.log_test(
+                        "Group Creation Authentication Fix",
+                        False,
+                        "❌ Login successful but no access token received",
+                        login_result
+                    )
+            else:
+                self.log_test(
+                    "Group Creation Authentication Fix",
+                    False,
+                    f"❌ Admin login failed with HTTP {login_response.status_code}: {login_response.text}",
+                    login_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Group Creation Authentication Fix",
+                False,
+                f"❌ Error during group creation authentication test: {str(e)}",
+                None
+            )
+
+    def test_group_creation_with_different_roles(self, admin_headers):
+        """Test group creation with different user roles"""
+        try:
+            # Create an editor user first
+            editor_data = {
+                "username": "test_editor_group",
+                "email": "editor@test.com",
+                "full_name": "Test Editor",
+                "password": "editor123",
+                "role": "editor"
+            }
+            
+            create_user_response = self.session.post(
+                f"{self.base_url}/auth/create-user",
+                json=editor_data,
+                headers=admin_headers
+            )
+            
+            if create_user_response.status_code == 200:
+                # Login as editor
+                editor_login = {
+                    "username": "test_editor_group",
+                    "password": "editor123"
+                }
+                
+                editor_login_response = self.session.post(f"{self.base_url}/auth/login", json=editor_login)
+                
+                if editor_login_response.status_code == 200:
+                    editor_result = editor_login_response.json()
+                    editor_token = editor_result.get("access_token")
+                    editor_headers = {"Authorization": f"Bearer {editor_token}"}
+                    
+                    # Test group creation as editor
+                    group_data = {
+                        "name": "Editor Test Group",
+                        "description": "Testing group creation as editor",
+                        "color": "#4caf50"
+                    }
+                    
+                    editor_create_response = self.session.post(
+                        f"{self.base_url}/groups",
+                        json=group_data,
+                        headers=editor_headers
+                    )
+                    
+                    if editor_create_response.status_code == 200:
+                        self.log_test(
+                            "Group Creation - Editor Role",
+                            True,
+                            "✅ Editor can create groups successfully",
+                            editor_create_response.json()
+                        )
+                    else:
+                        self.log_test(
+                            "Group Creation - Editor Role",
+                            False,
+                            f"❌ Editor cannot create groups: HTTP {editor_create_response.status_code}",
+                            editor_create_response.text
+                        )
+                        
+            # Create a viewer user
+            viewer_data = {
+                "username": "test_viewer_group",
+                "email": "viewer@test.com", 
+                "full_name": "Test Viewer",
+                "password": "viewer123",
+                "role": "viewer"
+            }
+            
+            create_viewer_response = self.session.post(
+                f"{self.base_url}/auth/create-user",
+                json=viewer_data,
+                headers=admin_headers
+            )
+            
+            if create_viewer_response.status_code == 200:
+                # Login as viewer
+                viewer_login = {
+                    "username": "test_viewer_group",
+                    "password": "viewer123"
+                }
+                
+                viewer_login_response = self.session.post(f"{self.base_url}/auth/login", json=viewer_login)
+                
+                if viewer_login_response.status_code == 200:
+                    viewer_result = viewer_login_response.json()
+                    viewer_token = viewer_result.get("access_token")
+                    viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
+                    
+                    # Test group creation as viewer (should fail)
+                    group_data = {
+                        "name": "Viewer Test Group",
+                        "description": "Testing group creation as viewer",
+                        "color": "#2196f3"
+                    }
+                    
+                    viewer_create_response = self.session.post(
+                        f"{self.base_url}/groups",
+                        json=group_data,
+                        headers=viewer_headers
+                    )
+                    
+                    if viewer_create_response.status_code == 403:
+                        self.log_test(
+                            "Group Creation - Viewer Role Restriction",
+                            True,
+                            "✅ Viewer correctly blocked from creating groups (403 Forbidden)",
+                            viewer_create_response.json()
+                        )
+                    else:
+                        self.log_test(
+                            "Group Creation - Viewer Role Restriction",
+                            False,
+                            f"❌ Viewer should be blocked from creating groups, got HTTP {viewer_create_response.status_code}",
+                            viewer_create_response.text
+                        )
+                        
+        except Exception as e:
+            self.log_test(
+                "Group Creation - Role Testing",
+                False,
+                f"❌ Error during role-based group creation test: {str(e)}",
+                None
+            )
+
+    def test_bulk_document_upload(self):
+        """🔥 NEW FEATURE: Test Bulk Document Upload"""
+        try:
+            print("   📁 Testing Bulk Document Upload Feature...")
+            
+            # Login to get authentication token
+            login_data = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            login_response = self.session.post(f"{self.base_url}/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                login_result = login_response.json()
+                access_token = login_result.get("access_token")
+                headers = {"Authorization": f"Bearer {access_token}"}
+                
+                # Test 1: Basic bulk upload with multiple files
+                import base64
+                
+                # Create test files
+                test_files = [
+                    {
+                        "filename": "bulk_test_1.docx",
+                        "content": base64.b64encode(b'PK\x03\x04' + b'Test DOCX content 1' + b'\x00' * 100).decode('utf-8')
+                    },
+                    {
+                        "filename": "bulk_test_2.doc", 
+                        "content": base64.b64encode(b'\xd0\xcf\x11\xe0' + b'Test DOC content 2' + b'\x00' * 100).decode('utf-8')
+                    },
+                    {
+                        "filename": "bulk_test_3.docx",
+                        "content": base64.b64encode(b'PK\x03\x04' + b'Test DOCX content 3' + b'\x00' * 100).decode('utf-8')
+                    }
+                ]
+                
+                bulk_request = {
+                    "files": test_files
+                }
+                
+                bulk_response = self.session.post(
+                    f"{self.base_url}/bulk-upload-documents",
+                    json=bulk_request,
+                    headers=headers
+                )
+                
+                if bulk_response.status_code == 200:
+                    bulk_result = bulk_response.json()
+                    
+                    # Validate response structure
+                    required_fields = ["total_files", "successful_uploads", "failed_uploads", "results", "processing_time"]
+                    missing_fields = [field for field in required_fields if field not in bulk_result]
+                    
+                    if not missing_fields:
+                        total_files = bulk_result["total_files"]
+                        successful = bulk_result["successful_uploads"]
+                        failed = bulk_result["failed_uploads"]
+                        processing_time = bulk_result["processing_time"]
+                        
+                        success_rate = successful / total_files if total_files > 0 else 0
+                        
+                        self.log_test(
+                            "Bulk Document Upload - Basic Functionality",
+                            success_rate >= 0.6,  # 60% success rate acceptable for test files
+                            f"✅ Bulk upload working! {successful}/{total_files} files uploaded successfully ({success_rate:.1%}), Processing time: {processing_time:.2f}s",
+                            {
+                                "total_files": total_files,
+                                "successful_uploads": successful,
+                                "failed_uploads": failed,
+                                "processing_time": processing_time
+                            }
+                        )
+                        
+                        # Test detailed results
+                        results = bulk_result.get("results", [])
+                        if results:
+                            self.test_bulk_upload_results_validation(results)
+                            
+                    else:
+                        self.log_test(
+                            "Bulk Document Upload - Response Structure",
+                            False,
+                            f"❌ Bulk upload response missing fields: {missing_fields}",
+                            bulk_result
+                        )
+                else:
+                    self.log_test(
+                        "Bulk Document Upload - Basic Functionality",
+                        False,
+                        f"❌ Bulk upload failed with HTTP {bulk_response.status_code}: {bulk_response.text}",
+                        bulk_response.text
+                    )
+                
+                # Test 2: Validation tests
+                self.test_bulk_upload_validation(headers)
+                
+                # Test 3: Performance test with multiple files
+                self.test_bulk_upload_performance(headers)
+                
+            else:
+                self.log_test(
+                    "Bulk Document Upload",
+                    False,
+                    f"❌ Admin login failed for bulk upload test: HTTP {login_response.status_code}",
+                    login_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Bulk Document Upload",
+                False,
+                f"❌ Error during bulk document upload test: {str(e)}",
+                None
+            )
+
+    def test_bulk_upload_results_validation(self, results):
+        """Validate bulk upload results structure"""
+        try:
+            valid_results = 0
+            total_results = len(results)
+            
+            for result in results:
+                required_fields = ["filename", "status", "message"]
+                if all(field in result for field in required_fields):
+                    if result["status"] in ["success", "error", "processing"]:
+                        valid_results += 1
+            
+            validation_success = valid_results == total_results
+            
+            self.log_test(
+                "Bulk Upload - Results Validation",
+                validation_success,
+                f"Results structure validation: {valid_results}/{total_results} results have correct structure",
+                {"valid_results": valid_results, "total_results": total_results}
+            )
+            
+        except Exception as e:
+            self.log_test(
+                "Bulk Upload - Results Validation",
+                False,
+                f"❌ Error validating bulk upload results: {str(e)}",
+                None
+            )
+
+    def test_bulk_upload_validation(self, headers):
+        """Test bulk upload validation scenarios"""
+        try:
+            import base64
+            
+            # Test 1: File format validation
+            invalid_files = [
+                {
+                    "filename": "invalid.txt",
+                    "content": base64.b64encode(b'Invalid text file content').decode('utf-8')
+                },
+                {
+                    "filename": "invalid.pdf",
+                    "content": base64.b64encode(b'%PDF-1.4 Invalid PDF content').decode('utf-8')
+                }
+            ]
+            
+            validation_request = {
+                "files": invalid_files
+            }
+            
+            validation_response = self.session.post(
+                f"{self.base_url}/bulk-upload-documents",
+                json=validation_request,
+                headers=headers
+            )
+            
+            if validation_response.status_code == 200:
+                validation_result = validation_response.json()
+                
+                # Check if invalid files were properly rejected
+                failed_uploads = validation_result.get("failed_uploads", 0)
+                results = validation_result.get("results", [])
+                
+                format_errors = 0
+                for result in results:
+                    if result.get("status") == "error" and "format" in result.get("message", "").lower():
+                        format_errors += 1
+                
+                validation_working = format_errors >= len(invalid_files) * 0.5  # At least 50% should be format errors
+                
+                self.log_test(
+                    "Bulk Upload - Format Validation",
+                    validation_working,
+                    f"Format validation: {format_errors}/{len(invalid_files)} files rejected for format issues, Total failed: {failed_uploads}",
+                    {"format_errors": format_errors, "failed_uploads": failed_uploads}
+                )
+            
+            # Test 2: Size limit validation
+            large_file = {
+                "filename": "large_test.docx",
+                "content": base64.b64encode(b'PK\x03\x04' + b'X' * (11 * 1024 * 1024)).decode('utf-8')  # 11MB
+            }
+            
+            size_request = {
+                "files": [large_file]
+            }
+            
+            size_response = self.session.post(
+                f"{self.base_url}/bulk-upload-documents",
+                json=size_request,
+                headers=headers
+            )
+            
+            if size_response.status_code == 200:
+                size_result = size_response.json()
+                results = size_result.get("results", [])
+                
+                size_error_found = False
+                for result in results:
+                    if result.get("status") == "error" and any(keyword in result.get("message", "").lower() 
+                                                             for keyword in ["boyut", "büyük", "limit", "mb"]):
+                        size_error_found = True
+                        break
+                
+                self.log_test(
+                    "Bulk Upload - Size Validation",
+                    size_error_found,
+                    f"Size validation: {'Working' if size_error_found else 'Not working'} - Large file handling",
+                    {"size_validation_working": size_error_found}
+                )
+            
+            # Test 3: Count limit validation (if implemented)
+            many_files = []
+            for i in range(55):  # More than 50 files
+                many_files.append({
+                    "filename": f"test_{i}.docx",
+                    "content": base64.b64encode(b'PK\x03\x04' + f'Test content {i}'.encode() + b'\x00' * 50).decode('utf-8')
+                })
+            
+            count_request = {
+                "files": many_files
+            }
+            
+            count_response = self.session.post(
+                f"{self.base_url}/bulk-upload-documents",
+                json=count_request,
+                headers=headers
+            )
+            
+            if count_response.status_code == 400:
+                count_error = count_response.json()
+                if "50" in count_error.get("detail", ""):
+                    self.log_test(
+                        "Bulk Upload - Count Limit Validation",
+                        True,
+                        f"✅ Count limit validation working: {count_error.get('detail', '')}",
+                        count_error
+                    )
+                else:
+                    self.log_test(
+                        "Bulk Upload - Count Limit Validation",
+                        False,
+                        f"❌ Count limit error message unclear: {count_error.get('detail', '')}",
+                        count_error
+                    )
+            else:
+                self.log_test(
+                    "Bulk Upload - Count Limit Validation",
+                    False,
+                    f"❌ Expected 400 for too many files, got HTTP {count_response.status_code}",
+                    count_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Bulk Upload - Validation Tests",
+                False,
+                f"❌ Error during bulk upload validation tests: {str(e)}",
+                None
+            )
+
+    def test_bulk_upload_performance(self, headers):
+        """Test bulk upload performance with multiple small files"""
+        try:
+            import base64
+            import time
+            
+            # Create 10 small test files
+            performance_files = []
+            for i in range(10):
+                performance_files.append({
+                    "filename": f"perf_test_{i}.docx",
+                    "content": base64.b64encode(b'PK\x03\x04' + f'Performance test content {i}'.encode() + b'\x00' * 200).decode('utf-8')
+                })
+            
+            performance_request = {
+                "files": performance_files
+            }
+            
+            start_time = time.time()
+            
+            performance_response = self.session.post(
+                f"{self.base_url}/bulk-upload-documents",
+                json=performance_request,
+                headers=headers,
+                timeout=60  # 60 second timeout for performance test
+            )
+            
+            end_time = time.time()
+            total_time = end_time - start_time
+            
+            if performance_response.status_code == 200:
+                performance_result = performance_response.json()
+                
+                successful = performance_result.get("successful_uploads", 0)
+                processing_time = performance_result.get("processing_time", 0)
+                
+                # Performance criteria: should handle 10 files in under 30 seconds
+                performance_acceptable = total_time < 30 and successful >= 5
+                
+                self.log_test(
+                    "Bulk Upload - Performance Test",
+                    performance_acceptable,
+                    f"Performance test: {successful}/10 files processed in {total_time:.2f}s (API reported: {processing_time:.2f}s)",
+                    {
+                        "total_time": total_time,
+                        "api_processing_time": processing_time,
+                        "successful_uploads": successful,
+                        "files_per_second": successful / total_time if total_time > 0 else 0
+                    }
+                )
+            else:
+                self.log_test(
+                    "Bulk Upload - Performance Test",
+                    False,
+                    f"❌ Performance test failed with HTTP {performance_response.status_code} after {total_time:.2f}s",
+                    performance_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Bulk Upload - Performance Test",
+                False,
+                f"❌ Error during bulk upload performance test: {str(e)}",
+                None
+            )
+
+    def test_mandatory_password_change_system(self):
+        """🔥 NEW FEATURE: Test Mandatory Password Change System"""
+        try:
+            print("   🔐 Testing Mandatory Password Change System...")
+            
+            # Test 1: Check if admin user has must_change_password=true initially
+            admin_login = {
+                "username": "admin",
+                "password": "admin123"
+            }
+            
+            admin_login_response = self.session.post(f"{self.base_url}/auth/login", json=admin_login)
+            
+            if admin_login_response.status_code == 200:
+                admin_result = admin_login_response.json()
+                
+                # Check if response includes must_change_password field
+                must_change_password = admin_result.get("must_change_password", False)
+                user_info = admin_result.get("user", {})
+                user_must_change = user_info.get("must_change_password", False)
+                
+                # Either field should indicate password change requirement
+                password_change_required = must_change_password or user_must_change
+                
+                self.log_test(
+                    "Mandatory Password Change - Admin Initial State",
+                    password_change_required,
+                    f"Admin user must_change_password status: {password_change_required} (Response: {must_change_password}, User: {user_must_change})",
+                    {
+                        "response_must_change": must_change_password,
+                        "user_must_change": user_must_change,
+                        "password_change_required": password_change_required
+                    }
+                )
+                
+                # Get access token for further tests
+                access_token = admin_result.get("access_token")
+                headers = {"Authorization": f"Bearer {access_token}"}
+                
+                # Test 2: Test password change endpoint
+                password_change_data = {
+                    "current_password": "admin123",
+                    "new_password": "newadmin123"
+                }
+                
+                change_response = self.session.post(
+                    f"{self.base_url}/auth/change-password",
+                    json=password_change_data,
+                    headers=headers
+                )
+                
+                if change_response.status_code == 200:
+                    change_result = change_response.json()
+                    
+                    self.log_test(
+                        "Mandatory Password Change - Password Change Endpoint",
+                        True,
+                        f"✅ Password change endpoint working: {change_result.get('message', 'Success')}",
+                        change_result
+                    )
+                    
+                    # Test 3: Verify must_change_password flag is cleared after password change
+                    # Login again with new password
+                    new_login = {
+                        "username": "admin",
+                        "password": "newadmin123"
+                    }
+                    
+                    new_login_response = self.session.post(f"{self.base_url}/auth/login", json=new_login)
+                    
+                    if new_login_response.status_code == 200:
+                        new_result = new_login_response.json()
+                        
+                        new_must_change = new_result.get("must_change_password", True)  # Default to True to test clearing
+                        new_user_must_change = new_result.get("user", {}).get("must_change_password", True)
+                        
+                        flag_cleared = not new_must_change and not new_user_must_change
+                        
+                        self.log_test(
+                            "Mandatory Password Change - Flag Cleared After Change",
+                            flag_cleared,
+                            f"Password change flag cleared: {flag_cleared} (Response: {new_must_change}, User: {new_user_must_change})",
+                            {
+                                "response_must_change": new_must_change,
+                                "user_must_change": new_user_must_change,
+                                "flag_cleared": flag_cleared
+                            }
+                        )
+                        
+                        # Change password back to original for other tests
+                        new_headers = {"Authorization": f"Bearer {new_result.get('access_token')}"}
+                        restore_password_data = {
+                            "current_password": "newadmin123",
+                            "new_password": "admin123"
+                        }
+                        
+                        self.session.post(
+                            f"{self.base_url}/auth/change-password",
+                            json=restore_password_data,
+                            headers=new_headers
+                        )
+                        
+                    else:
+                        self.log_test(
+                            "Mandatory Password Change - Login After Change",
+                            False,
+                            f"❌ Cannot login with new password: HTTP {new_login_response.status_code}",
+                            new_login_response.text
+                        )
+                        
+                else:
+                    self.log_test(
+                        "Mandatory Password Change - Password Change Endpoint",
+                        False,
+                        f"❌ Password change failed: HTTP {change_response.status_code}: {change_response.text}",
+                        change_response.text
+                    )
+                
+                # Test 4: Test new user creation with must_change_password=true
+                new_user_data = {
+                    "username": "test_password_change",
+                    "email": "testpwd@test.com",
+                    "full_name": "Test Password Change User",
+                    "password": "testpwd123",
+                    "role": "viewer"
+                }
+                
+                create_user_response = self.session.post(
+                    f"{self.base_url}/auth/create-user",
+                    json=new_user_data,
+                    headers=headers
+                )
+                
+                if create_user_response.status_code == 200:
+                    create_result = create_user_response.json()
+                    
+                    # Check if response indicates must_change_password=true for new user
+                    new_user_must_change = create_result.get("must_change_password", False)
+                    
+                    self.log_test(
+                        "Mandatory Password Change - New User Creation",
+                        new_user_must_change,
+                        f"New user must_change_password flag: {new_user_must_change}",
+                        create_result
+                    )
+                    
+                    # Test login with new user
+                    new_user_login = {
+                        "username": "test_password_change",
+                        "password": "testpwd123"
+                    }
+                    
+                    new_user_login_response = self.session.post(f"{self.base_url}/auth/login", json=new_user_login)
+                    
+                    if new_user_login_response.status_code == 200:
+                        new_user_result = new_user_login_response.json()
+                        
+                        login_must_change = new_user_result.get("must_change_password", False)
+                        login_user_must_change = new_user_result.get("user", {}).get("must_change_password", False)
+                        
+                        new_user_requires_change = login_must_change or login_user_must_change
+                        
+                        self.log_test(
+                            "Mandatory Password Change - New User Login",
+                            new_user_requires_change,
+                            f"New user login must_change_password: {new_user_requires_change} (Response: {login_must_change}, User: {login_user_must_change})",
+                            {
+                                "response_must_change": login_must_change,
+                                "user_must_change": login_user_must_change,
+                                "requires_change": new_user_requires_change
+                            }
+                        )
+                    else:
+                        self.log_test(
+                            "Mandatory Password Change - New User Login",
+                            False,
+                            f"❌ New user cannot login: HTTP {new_user_login_response.status_code}",
+                            new_user_login_response.text
+                        )
+                        
+                else:
+                    self.log_test(
+                        "Mandatory Password Change - New User Creation",
+                        False,
+                        f"❌ Cannot create test user: HTTP {create_user_response.status_code}",
+                        create_user_response.text
+                    )
+                    
+            else:
+                self.log_test(
+                    "Mandatory Password Change System",
+                    False,
+                    f"❌ Admin login failed: HTTP {admin_login_response.status_code}: {admin_login_response.text}",
+                    admin_login_response.text
+                )
+                
+        except Exception as e:
+            self.log_test(
+                "Mandatory Password Change System",
+                False,
+                f"❌ Error during mandatory password change test: {str(e)}",
+                None
+            )
+
     def run_all_tests(self):
         """Run all backend tests including NEW Authentication and Rating System features"""
         print("🚀 Starting Backend API Testing for Kurumsal Prosedür Asistanı")
