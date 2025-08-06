@@ -76,6 +76,18 @@ function App() {
     full_name: '', email: '', role: '', is_active: true
   });
   
+  // Profile Management için yeni state'ler
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    full_name: '', email: ''
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '', new_password: '', confirm_password: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  
   // Doküman arama için yeni state'ler
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
