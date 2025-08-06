@@ -78,23 +78,30 @@ function App() {
   useEffect(() => {
     // Session ID oluştur
     setSessionId(generateSessionId());
-    // Sistem durumunu al
-    fetchSystemStatus();
-    // Dokümanları al
-    fetchDocuments();
-    // Grupları al
-    fetchGroups();
-    // Soru geçmişini al
-    fetchChatSessions();
-    // Son soruları al
-    fetchRecentQuestions();
-    // Favori soruları al
-    fetchFavoriteQuestions();
-    // FAQ'ları al
-    fetchFaqItems();
-    // FAQ analytics'i al
-    fetchFaqAnalytics();
+    // Authentication'ı kontrol et
+    checkAuthentication();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Sistem durumunu al
+      fetchSystemStatus();
+      // Dokümanları al
+      fetchDocuments();
+      // Grupları al
+      fetchGroups();
+      // Soru geçmişini al
+      fetchChatSessions();
+      // Son soruları al
+      fetchRecentQuestions();
+      // Favori soruları al
+      fetchFavoriteQuestions();
+      // FAQ'ları al
+      fetchFaqItems();
+      // FAQ analytics'i al
+      fetchFaqAnalytics();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // selectedGroup değiştiğinde dokümanları yeniden fetch et
