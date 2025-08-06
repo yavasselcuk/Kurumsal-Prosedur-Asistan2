@@ -914,14 +914,14 @@ function App() {
       setSelectedFile(file);
       setUploadProgress('');
     } else {
-      alert('Lütfen sadece .doc veya .docx formatındaki dosyaları seçin.');
+      showError('Dosya Formatı Hatası', 'Lütfen sadece .doc veya .docx formatındaki dosyaları seçin.');
       event.target.value = '';
     }
   };
 
   const handleFileUpload = async () => {
     if (!selectedFile) {
-      alert('Lütfen bir dosya seçin.');
+      showWarning('Dosya Seçimi', 'Lütfen bir dosya seçin.');
       return;
     }
 
@@ -938,6 +938,9 @@ function App() {
       
       const response = await fetch(`${backendUrl}/api/upload-document`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        },
         body: formData,
       });
 
