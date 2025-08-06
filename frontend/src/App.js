@@ -1472,6 +1472,7 @@ function App() {
                 setActiveTab('admin');
                 fetchUserStats();
                 fetchAllUsers();
+                fetchRatingStats();
               }}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'admin'
