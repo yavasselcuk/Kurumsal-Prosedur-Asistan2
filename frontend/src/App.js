@@ -548,7 +548,14 @@ function App() {
   const deleteUser = async (userId, username) => {
     if (!isAuthenticated || !authToken) return;
     
-    if (!confirm(`${username} kullanıcısını silmek istediğinizden emin misiniz?`)) return;
+    const result = await showConfirm(
+      'Kullanıcı Silme',
+      `${username} kullanıcısını kalıcı olarak silmek istediğinizden emin misiniz?`,
+      'Evet, Sil',
+      'İptal'
+    );
+    
+    if (!result.isConfirmed) return;
     
     try {
       const response = await fetch(`${backendUrl}/api/auth/users/${userId}`, {
@@ -562,15 +569,15 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Kullanıcı başarıyla silindi!');
+        showSuccess('Kullanıcı Silindi', `${username} kullanıcısı başarıyla silindi`);
         fetchAllUsers();
         fetchUserStats();
       } else {
-        alert('Kullanıcı silme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Silme Hatası', data.detail || 'Kullanıcı silinirken bir hata oluştu');
       }
     } catch (error) {
       console.error('Delete user error:', error);
-      alert('Kullanıcı silme hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
@@ -584,7 +591,14 @@ function App() {
       'delete': 'sil'
     };
     
-    if (!confirm(`Seçili ${selectedUsers.length} kullanıcıyı ${actionText[action]}mek istediğinizden emin misiniz?`)) return;
+    const result = await showConfirm(
+      'Toplu İşlem',
+      `Seçili ${selectedUsers.length} kullanıcıyı ${actionText[action]}mek istediğinizden emin misiniz?`,
+      'Evet, Uygula',
+      'İptal'
+    );
+    
+    if (!result.isConfirmed) return;
     
     try {
       const response = await fetch(`${backendUrl}/api/auth/users/bulk-update`, {
