@@ -1379,6 +1379,14 @@ function App() {
                                   {message.chunksCount} kaynak kullanıldı
                                 </span>
                               )}
+                              {message.type === 'ai' && isAuthenticated && (
+                                <RatingWidget 
+                                  sessionId={message.sessionId || sessionId}
+                                  messageIndex={index}
+                                  onRate={addRating}
+                                  existingRating={messageRatings[message.sessionId || sessionId]}
+                                />
+                              )}
                               {message.type === 'ai' && (
                                 <button
                                   onClick={() => {
