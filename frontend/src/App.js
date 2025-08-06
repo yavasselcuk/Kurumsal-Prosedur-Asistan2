@@ -617,16 +617,16 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Toplu işlem başarılı: ${data.affected_count} kullanıcı etkilendi`);
+        showSuccess('Toplu İşlem Tamamlandı', `${data.affected_count} kullanıcı başarıyla ${actionText[action]}ldi`);
         setSelectedUsers([]);
         fetchAllUsers();
         fetchUserStats();
       } else {
-        alert('Toplu işlem hatası: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Toplu İşlem Hatası', data.detail || 'Toplu işlem gerçekleştirilirken bir hata oluştu');
       }
     } catch (error) {
       console.error('Bulk update error:', error);
-      alert('Toplu işlem hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
