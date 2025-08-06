@@ -3590,6 +3590,31 @@ async def update_faiss_index_optimized():
     except Exception as e:
         logger.error(f"FAISS update error: {str(e)}")
 
+# Debounced FAISS update to prevent sequential rebuilds
+_faiss_update_pending = False
+
+async def debounced_faiss_update():
+    """Debounced FAISS update - prevents multiple sequential updates"""
+    global _faiss_update_pending
+    
+    if _faiss_update_pending:
+        logging.info("FAISS update already pending, skipping duplicate request")
+        return
+    
+    _faiss_update_pending = True
+    
+    try:
+        # Small delay to allow for batching multiple deletes
+        await asyncio.sleep(2)
+        
+        # Call the optimized update function
+        await update_faiss_index_optimized()
+        
+    except Exception as e:
+        logging.error(f"Debounced FAISS update error: {str(e)}")
+    finally:
+        _faiss_update_pending = False
+
 @api_router.delete("/documents")
 async def delete_all_documents(background_tasks: BackgroundTasks, confirm: bool = False, current_user: dict = Depends(require_admin)):
     """Tüm dokümanları sil (tehlikeli işlem)"""
