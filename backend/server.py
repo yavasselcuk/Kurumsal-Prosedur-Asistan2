@@ -1526,8 +1526,232 @@ async def create_user(
         logger.error(f"User creation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Kullanıcı oluşturulurken hata oluştu")
 
-# Other endpoints would continue here...
-# (The rest of the endpoints remain the same, but I'm truncating for space)
+# Group Management Endpoints
+@api_router.get("/groups", response_model=GroupListResponse)
+async def get_groups(current_user: dict = Depends(require_authenticated)):
+    """Grupları listele"""
+    try:
+        groups = []
+        total_count = 0
+        
+        # Get all groups
+        async for group_doc in db.groups.find():
+            # Count documents in this group
+            doc_count = await db.documents.count_documents({"group_id": group_doc["id"]})
+            
+            group_info = GroupInfo(
+                id=group_doc["id"],
+                name=group_doc["name"],
+                description=group_doc.get("description", ""),
+                color=group_doc.get("color", "#3b82f6"),
+                document_count=doc_count,
+                created_at=group_doc.get("created_at", datetime.utcnow())
+            )
+            groups.append(group_info)
+        
+        total_count = len(groups)
+        
+        return GroupListResponse(groups=groups, total_count=total_count)
+        
+    except Exception as e:
+        logger.error(f"Error getting groups: {str(e)}")
+        raise HTTPException(status_code=500, detail="Gruplar alınırken hata oluştu")
+
+@api_router.post("/groups")
+async def create_group(
+    group_data: GroupCreateRequest, 
+    current_user: dict = Depends(require_editor_or_admin)
+):
+    """Yeni grup oluştur"""
+    try:
+        # Check if group name already exists
+        existing_group = await db.groups.find_one({"name": group_data.name})
+        if existing_group:
+            raise HTTPException(status_code=400, detail="Bu grup adı zaten kullanılıyor")
+        
+        # Create new group
+        new_group = GroupInfo(
+            name=group_data.name,
+            description=group_data.description,
+            color=group_data.color,
+            document_count=0
+        )
+        
+        # Save to database
+        await db.groups.insert_one(new_group.dict())
+        
+        # Log activity
+        asyncio.create_task(log_user_activity(
+            current_user["id"],
+            "group_create",
+            f"Created group: {group_data.name}"
+        ))
+        
+        return {
+            "message": f"Grup '{group_data.name}' başarıyla oluşturuldu",
+            "group_id": new_group.id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Group creation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Grup oluşturulurken hata oluştu")
+
+@api_router.put("/groups/{group_id}")
+async def update_group(
+    group_id: str, 
+    group_data: GroupCreateRequest, 
+    current_user: dict = Depends(require_editor_or_admin)
+):
+    """Grup bilgilerini güncelle"""
+    try:
+        # Find group
+        group = await db.groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Grup bulunamadı")
+        
+        # Check if new name conflicts with existing groups (excluding current)
+        if group_data.name != group["name"]:
+            existing_group = await db.groups.find_one({"name": group_data.name})
+            if existing_group:
+                raise HTTPException(status_code=400, detail="Bu grup adı zaten kullanılıyor")
+        
+        # Update group
+        update_data = {
+            "name": group_data.name,
+            "description": group_data.description,
+            "color": group_data.color
+        }
+        
+        await db.groups.update_one({"id": group_id}, {"$set": update_data})
+        
+        # Update group_name in all documents belonging to this group
+        await db.documents.update_many(
+            {"group_id": group_id},
+            {"$set": {"group_name": group_data.name}}
+        )
+        
+        # Log activity
+        asyncio.create_task(log_user_activity(
+            current_user["id"],
+            "group_update",
+            f"Updated group: {group_data.name}"
+        ))
+        
+        return {
+            "message": f"Grup '{group_data.name}' başarıyla güncellendi"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Group update error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Grup güncellenirken hata oluştu")
+
+@api_router.delete("/groups/{group_id}")
+async def delete_group(
+    group_id: str, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(require_editor_or_admin)
+):
+    """Grup sil"""
+    try:
+        # Find group
+        group = await db.groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Grup bulunamadı")
+        
+        group_name = group.get("name", "Bilinmeyen grup")
+        
+        # Check if group has documents
+        doc_count = await db.documents.count_documents({"group_id": group_id})
+        
+        # Delete group
+        result = await db.groups.delete_one({"id": group_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Grup silinemedi")
+        
+        # Update documents to remove group association
+        if doc_count > 0:
+            await db.documents.update_many(
+                {"group_id": group_id},
+                {"$unset": {"group_id": "", "group_name": ""}}
+            )
+        
+        # Log activity
+        asyncio.create_task(log_user_activity(
+            current_user["id"],
+            "group_delete",
+            f"Deleted group: {group_name} ({doc_count} documents moved to ungrouped)"
+        ))
+        
+        return {
+            "message": f"Grup '{group_name}' silindi",
+            "affected_documents": doc_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Group deletion error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Grup silinirken hata oluştu")
+
+@api_router.post("/documents/move")
+async def move_documents_to_group(
+    move_request: DocumentMoveRequest,
+    current_user: dict = Depends(require_editor_or_admin)
+):
+    """Dokümanları başka gruba taşı"""
+    try:
+        if not move_request.document_ids:
+            raise HTTPException(status_code=400, detail="Taşınacak doküman seçilmedi")
+        
+        # Get target group info if specified
+        group_name = None
+        if move_request.target_group_id:
+            target_group = await db.groups.find_one({"id": move_request.target_group_id})
+            if not target_group:
+                raise HTTPException(status_code=404, detail="Hedef grup bulunamadı")
+            group_name = target_group["name"]
+        
+        # Update documents
+        if move_request.target_group_id:
+            # Move to specific group
+            update_result = await db.documents.update_many(
+                {"id": {"$in": move_request.document_ids}},
+                {"$set": {"group_id": move_request.target_group_id, "group_name": group_name}}
+            )
+        else:
+            # Move to ungrouped (remove group association)
+            update_result = await db.documents.update_many(
+                {"id": {"$in": move_request.document_ids}},
+                {"$unset": {"group_id": "", "group_name": ""}}
+            )
+        
+        if update_result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Taşınacak doküman bulunamadı")
+        
+        # Log activity
+        target_desc = group_name if group_name else "Grupsuz"
+        asyncio.create_task(log_user_activity(
+            current_user["id"],
+            "documents_move",
+            f"Moved {update_result.modified_count} documents to: {target_desc}"
+        ))
+        
+        return {
+            "message": f"{update_result.modified_count} doküman taşındı",
+            "moved_count": update_result.modified_count,
+            "target_group": group_name or "Grupsuz"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Document move error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Dokümanlar taşınırken hata oluştu")
 
 # Include the router
 app.include_router(api_router)
