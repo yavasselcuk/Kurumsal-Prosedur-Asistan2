@@ -384,14 +384,14 @@ function App() {
 
       if (response.ok) {
         setCurrentUser(data);
-        alert('Profil başarıyla güncellendi!');
+        showSuccess('Profil Güncellendi', 'Profil bilgileriniz başarıyla güncellendi');
         setShowProfileModal(false);
       } else {
-        alert('Profil güncelleme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Güncelleme Hatası', data.detail || 'Profil güncellenirken bir hata oluştu');
       }
     } catch (error) {
       console.error('Profile update error:', error);
-      alert('Profil güncelleme hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
   };
 
@@ -399,12 +399,12 @@ function App() {
     if (!isAuthenticated || !authToken) return;
     
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      alert('Yeni şifreler eşleşmiyor!');
+      showError('Şifre Uyumsuzluğu', 'Yeni şifreler eşleşmiyor!');
       return;
     }
     
     if (passwordForm.new_password.length < 6) {
-      alert('Yeni şifre en az 6 karakter olmalıdır!');
+      showError('Geçersiz Şifre', 'Yeni şifre en az 6 karakter olmalıdır!');
       return;
     }
     
@@ -426,15 +426,15 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Şifre başarıyla değiştirildi!');
+        showSuccess('Şifre Değiştirildi', 'Şifreniz başarıyla değiştirildi');
         setShowPasswordChangeModal(false);
         setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
       } else {
-        alert('Şifre değiştirme hatası: ' + (data.detail || 'Bilinmeyen hata'));
+        showError('Şifre Değiştirme Hatası', data.detail || 'Mevcut şifre yanlış olabilir');
       }
     } catch (error) {
       console.error('Password change error:', error);
-      alert('Şifre değiştirme hatası: ' + error.message);
+      showError('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     } finally {
       setPasswordLoading(false);
     }
