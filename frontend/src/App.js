@@ -121,6 +121,151 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Authentication functions
+  const checkAuthentication = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setCurrentUser(userData);
+        setIsAuthenticated(true);
+        setAuthToken(token);
+      } else {
+        // Token expired or invalid
+        localStorage.removeItem('auth_token');
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setAuthToken(null);
+      }
+    } catch (error) {
+      console.error('Authentication check failed:', error);
+      localStorage.removeItem('auth_token');
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setAuthToken(null);
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+
+    try {
+      const response = await fetch(`${backendUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(loginForm)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('auth_token', data.access_token);
+        setAuthToken(data.access_token);
+        setCurrentUser(data.user_info);
+        setIsAuthenticated(true);
+        setShowLogin(false);
+        setLoginForm({ username: '', password: '' });
+      } else {
+        alert('Giriş başarısız: ' + (data.detail || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Giriş hatası: ' + error.message);
+    }
+
+    setLoginLoading(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    setAuthToken(null);
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setChatHistory([]);
+    setDocuments([]);
+    setGroups([]);
+    setFavoriteQuestions([]);
+    setFaqItems([]);
+  };
+
+  // Rating functions
+  const addRating = async (sessionId, chatSessionId, rating, feedback = '') => {
+    if (!isAuthenticated || !authToken) {
+      alert('Oylama yapabilmek için giriş yapmanız gerekir');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/ratings`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          chat_session_id: chatSessionId,
+          rating: rating,
+          feedback: feedback
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update local rating state
+        setMessageRatings(prev => ({
+          ...prev,
+          [sessionId]: { rating, feedback, ratingId: data.rating_id }
+        }));
+        return data;
+      } else {
+        throw new Error(data.detail || 'Rating error');
+      }
+    } catch (error) {
+      console.error('Rating error:', error);
+      alert('Oylama hatası: ' + error.message);
+    }
+  };
+
+  const fetchRatingStats = async () => {
+    if (!isAuthenticated || !authToken || currentUser?.role !== 'admin') {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/ratings/stats`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRatingStats(data);
+      }
+    } catch (error) {
+      console.error('Rating stats error:', error);
+    }
+  };
+
   const fetchSystemStatus = async () => {
     try {
       const response = await fetch(`${backendUrl}/api/status`);
