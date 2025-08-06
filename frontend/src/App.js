@@ -1435,23 +1435,64 @@ function App() {
             {/* Authentication Section */}
             <div className="flex items-center space-x-4">
               {isAuthenticated && currentUser ? (
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{currentUser.full_name}</p>
-                    <p className="text-xs text-gray-600">{currentUser.role === 'admin' ? 'Yönetici' : currentUser.role === 'editor' ? 'Editör' : 'Görüntüleyici'}</p>
+                <div className="relative">
+                  <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">{currentUser.full_name}</p>
+                      <p className="text-xs text-gray-600">{currentUser.role === 'admin' ? 'Yönetici' : currentUser.role === 'editor' ? 'Editör' : 'Görüntüleyici'}</p>
+                    </div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                      currentUser.role === 'admin' ? 'bg-red-500' : 
+                      currentUser.role === 'editor' ? 'bg-blue-500' : 'bg-green-500'
+                    }`}>
+                      {currentUser.full_name?.charAt(0)?.toUpperCase()}
+                    </div>
+                    <span className="text-gray-400">▼</span>
                   </div>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
-                    currentUser.role === 'admin' ? 'bg-red-500' : 
-                    currentUser.role === 'editor' ? 'bg-blue-500' : 'bg-green-500'
-                  }`}>
-                    {currentUser.full_name?.charAt(0)?.toUpperCase()}
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-                  >
-                    Çıkış
-                  </button>
+                  
+                  {/* Profile Dropdown Menu */}
+                  {showProfileDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setProfileForm({ 
+                              full_name: currentUser.full_name, 
+                              email: currentUser.email 
+                            });
+                            setShowProfileModal(true);
+                            setShowProfileDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <span className="mr-2">👤</span>
+                          Profili Düzenle
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+                            setShowPasswordChangeModal(true);
+                            setShowProfileDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <span className="mr-2">🔒</span>
+                          Şifre Değiştir
+                        </button>
+                        <hr className="my-1" />
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setShowProfileDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                        >
+                          <span className="mr-2">🚪</span>
+                          Çıkış Yap
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button
