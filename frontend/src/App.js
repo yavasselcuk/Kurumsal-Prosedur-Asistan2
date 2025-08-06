@@ -1058,9 +1058,18 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        await fetchDocuments();
-        await fetchSystemStatus();
+        // Immediate UI update - kullanıcı hemen sonucu görür
         showSuccess('Doküman Silindi', data.message || 'Doküman başarıyla silindi');
+        
+        // Optimistic update - dokümanı listeden hemen kaldır
+        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        
+        // Background'da fresh data al (asynchronous)
+        setTimeout(() => {
+          fetchDocuments();
+          fetchSystemStatus();
+        }, 2000); // 2 saniye sonra refresh
+        
       } else {
         showError('Silme Hatası', data.detail || 'Doküman silinirken bir hata oluştu');
       }
