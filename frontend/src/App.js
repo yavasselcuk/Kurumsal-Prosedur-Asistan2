@@ -130,6 +130,20 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showProfileDropdown && !event.target.closest('.relative')) {
+        setShowProfileDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showProfileDropdown]);
+
   useEffect(() => {
     // selectedGroup değiştiğinde dokümanları yeniden fetch et
     fetchDocuments();
