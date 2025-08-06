@@ -3815,6 +3815,248 @@ function App() {
         </div>
       )}
 
+    {/* Mandatory Password Change Modal */}
+    {showMandatoryPasswordChange && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            🔐 Zorunlu Şifre Değişikliği
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Güvenlik nedeniyle şifrenizi değiştirmeniz gerekmektedir. Bu işlem tamamlanana kadar sistemi kullanamazsınız.
+          </p>
+          
+          <form className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mevcut Şifre
+              </label>
+              <input
+                type="password"
+                value={mandatoryPasswordForm.current_password}
+                onChange={(e) => setMandatoryPasswordForm(prev => ({
+                  ...prev,
+                  current_password: e.target.value
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Mevcut şifrenizi girin"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Yeni Şifre
+              </label>
+              <input
+                type="password"
+                value={mandatoryPasswordForm.new_password}
+                onChange={(e) => setMandatoryPasswordForm(prev => ({
+                  ...prev,
+                  new_password: e.target.value
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Yeni şifrenizi girin (en az 6 karakter)"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Yeni Şifre (Tekrar)
+              </label>
+              <input
+                type="password"
+                value={mandatoryPasswordForm.confirm_password}
+                onChange={(e) => setMandatoryPasswordForm(prev => ({
+                  ...prev,
+                  confirm_password: e.target.value
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Yeni şifrenizi tekrar girin"
+                required
+              />
+            </div>
+          </form>
+          
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={handleMandatoryPasswordChange}
+              disabled={mandatoryPasswordLoading}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
+            >
+              {mandatoryPasswordLoading ? 'Değiştiriliyor...' : 'Şifreyi Değiştir'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Bulk Upload Modal */}
+    {showBulkUploadModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">
+              📁 Toplu Doküman Yükleme
+            </h3>
+            <button
+              onClick={() => {
+                setShowBulkUploadModal(false);
+                clearBulkUpload();
+              }}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* File Selection */}
+          <div className="mb-6">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <div className="space-y-2">
+                <div className="text-gray-500">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <label htmlFor="bulkFileInput" className="cursor-pointer">
+                    <span className="text-blue-600 hover:text-blue-500">Dosyaları seçin</span>
+                    <span className="text-gray-500"> veya buraya sürükleyin</span>
+                  </label>
+                  <input
+                    id="bulkFileInput"
+                    type="file"
+                    multiple
+                    accept=".doc,.docx"
+                    onChange={handleBulkFileSelect}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  .doc ve .docx dosyaları desteklenir. Maksimum 20 dosya, her biri 10MB'dan küçük olmalı.
+                </p>
+              </div>
+            </div>
+            
+            {/* Group Selection for Bulk Upload */}
+            {groups.length > 0 && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hedef Grup (Opsiyonel)
+                </label>
+                <select
+                  value={selectedGroup}
+                  onChange={(e) => setSelectedGroup(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="ungrouped">Grupsuz</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Selected Files List */}
+          {selectedFiles.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                Seçilen Dosyalar ({selectedFiles.length})
+              </h4>
+              <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="flex justify-between items-center py-1 text-sm">
+                    <span className="text-gray-700 truncate flex-1 mr-2">
+                      {file.name}
+                    </span>
+                    <span className="text-gray-500">
+                      {(file.size / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upload Progress */}
+          {bulkUploadLoading && (
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                <span>Yükleme İlerlemesi</span>
+                <span>{bulkUploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${bulkUploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Results */}
+          {bulkUploadResults.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Yükleme Sonuçları</h4>
+              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3 space-y-2">
+                {bulkUploadResults.map((result, index) => (
+                  <div 
+                    key={index} 
+                    className={`flex justify-between items-center p-2 rounded text-sm ${
+                      result.status === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                    }`}
+                  >
+                    <span className="truncate flex-1 mr-2">{result.filename}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs">
+                        {result.status === 'success' ? '✅' : '❌'}
+                      </span>
+                      <span className="text-xs">
+                        {result.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-between">
+            <button
+              onClick={clearBulkUpload}
+              disabled={bulkUploadLoading}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+            >
+              Temizle
+            </button>
+            
+            <div className="space-x-3">
+              <button
+                onClick={() => setShowBulkUploadModal(false)}
+                disabled={bulkUploadLoading}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleBulkUpload}
+                disabled={selectedFiles.length === 0 || bulkUploadLoading}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+              >
+                {bulkUploadLoading ? `Yükleniyor... ${bulkUploadProgress}%` : `${selectedFiles.length} Dosyayı Yükle`}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     </div>
   );
 }
