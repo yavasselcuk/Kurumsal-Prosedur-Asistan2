@@ -290,11 +290,21 @@ function App() {
       if (response.ok) {
         localStorage.setItem('auth_token', data.access_token);
         setAuthToken(data.access_token);
-        setCurrentUser(data.user_info);
+        setCurrentUser(data.user);
         setIsAuthenticated(true);
         setShowLogin(false);
         setLoginForm({ username: '', password: '' });
-        showSuccess('Giriş Başarılı', `Hoş geldiniz, ${data.user_info.full_name}!`);
+        
+        // Check if password change is mandatory
+        if (data.must_change_password) {
+          setShowMandatoryPasswordChange(true);
+          showWarning(
+            'Şifre Değişikliği Gerekli', 
+            'Güvenlik nedeniyle şifrenizi değiştirmeniz gerekmektedir.'
+          );
+        } else {
+          showSuccess('Giriş Başarılı', `Hoş geldiniz, ${data.user.full_name}!`);
+        }
       } else {
         showError('Giriş Başarısız', data.detail || 'Kullanıcı adı veya şifre hatalı');
       }
