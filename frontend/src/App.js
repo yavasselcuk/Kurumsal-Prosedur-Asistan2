@@ -2322,6 +2322,252 @@ function App() {
             hideSearchSuggestions={hideSearchSuggestions}
             downloadOriginalDocument={downloadOriginalDocument}
           />
+        ) : activeTab === 'admin' ? (
+          /* Admin Dashboard */
+          <div className="space-y-6">
+            {/* User Statistics */}
+            {userStats && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-blue-100 rounded-full">
+                      <span className="text-2xl">👥</span>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-2xl font-bold text-blue-600">{userStats.total_users}</p>
+                      <p className="text-gray-600">Toplam Kullanıcı</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-green-100 rounded-full">
+                      <span className="text-2xl">✅</span>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-2xl font-bold text-green-600">{userStats.active_users}</p>
+                      <p className="text-gray-600">Aktif Kullanıcı</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-red-100 rounded-full">
+                      <span className="text-2xl">🔴</span>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-2xl font-bold text-red-600">{userStats.admin_count}</p>
+                      <p className="text-gray-600">Yöneticiler</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <div className="flex items-center">
+                    <div className="p-3 bg-purple-100 rounded-full">
+                      <span className="text-2xl">⚡</span>
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-2xl font-bold text-purple-600">{userStats.editor_count + userStats.viewer_count}</p>
+                      <p className="text-gray-600">Editor & Viewer</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* User Management */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">👥 Kullanıcı Yönetimi</h2>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowCreateUser(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    ➕ Kullanıcı Oluştur
+                  </button>
+                  
+                  {selectedUsers.length > 0 && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => bulkUpdateUsers('activate')}
+                        className="px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                      >
+                        ✅ Etkinleştir
+                      </button>
+                      <button
+                        onClick={() => bulkUpdateUsers('deactivate')}
+                        className="px-3 py-2 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
+                      >
+                        ⏸️ Devre Dışı
+                      </button>
+                      <button
+                        onClick={() => bulkUpdateUsers('delete')}
+                        className="px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+                      >
+                        🗑️ Sil
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* User List */}
+              {loadingUsers ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-600">Kullanıcılar yükleniyor...</div>
+                </div>
+              ) : allUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-600">Kullanıcı bulunamadı</div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left">
+                          <input
+                            type="checkbox"
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedUsers(allUsers.filter(u => u.id !== currentUser?.id).map(u => u.id));
+                              } else {
+                                setSelectedUsers([]);
+                              }
+                            }}
+                            className="rounded"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Kullanıcı</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Rol</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Durum</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Son Giriş</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {allUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.includes(user.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUsers([...selectedUsers, user.id]);
+                                } else {
+                                  setSelectedUsers(selectedUsers.filter(id => id !== user.id));
+                                }
+                              }}
+                              disabled={user.id === currentUser?.id}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3 ${
+                                user.role === 'admin' ? 'bg-red-500' : 
+                                user.role === 'editor' ? 'bg-blue-500' : 'bg-green-500'
+                              }`}>
+                                {user.full_name?.charAt(0)?.toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{user.full_name}</div>
+                                <div className="text-sm text-gray-500">@{user.username}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{user.email}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                              user.role === 'editor' ? 'bg-blue-100 text-blue-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {user.role === 'admin' ? 'Yönetici' : 
+                               user.role === 'editor' ? 'Editör' : 'Görüntüleyici'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {user.is_active ? 'Aktif' : 'Pasif'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {user.last_login ? new Date(user.last_login).toLocaleDateString('tr-TR') : 'Hiç giriş yapmamış'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end space-x-2">
+                              <button
+                                onClick={() => {
+                                  setEditingUser(user);
+                                  setUserForm({
+                                    full_name: user.full_name,
+                                    email: user.email,
+                                    role: user.role,
+                                    is_active: user.is_active
+                                  });
+                                  setShowEditUser(true);
+                                }}
+                                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                              >
+                                ✏️ Düzenle
+                              </button>
+                              {user.id !== currentUser?.id && (
+                                <button
+                                  onClick={() => deleteUser(user.id, user.username)}
+                                  className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+                                >
+                                  🗑️ Sil
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Rating Analytics */}
+            {ratingStats && (
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">⭐ AI Cevap Kalitesi</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-yellow-600">{ratingStats.average_rating.toFixed(1)}</div>
+                    <div className="text-gray-600">Ortalama Puan</div>
+                    <div className="text-sm text-gray-500">({ratingStats.total_ratings} değerlendirme)</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="space-y-2">
+                      {Object.entries(ratingStats.rating_distribution).reverse().map(([rating, count]) => (
+                        <div key={rating} className="flex items-center">
+                          <span className="w-8 text-sm">{rating}⭐</span>
+                          <div className="flex-1 mx-3 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-yellow-500 h-2 rounded-full" 
+                              style={{ width: `${(count / ratingStats.total_ratings) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="w-8 text-sm text-gray-600">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           /* Documents Tab */
           <div className="space-y-6">
