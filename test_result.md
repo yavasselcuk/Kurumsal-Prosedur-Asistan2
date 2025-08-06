@@ -105,6 +105,17 @@
 user_problem_statement: "KPA uygulamasına yeni özellikler eklenmesi: 1. AI Cevap Kalitesi Metrikleri (1-5 yıldız rating + feedback comments + admin analytics), 2. JWT tabanlı Multi-user Authentication sistemi (session timeout 48 saat, password recovery), 3. Rol bazlı erişim kontrolü (Admin/Editor/Viewer rolleri), 4. Admin Dashboard (kullanıcı yönetimi + AI kalite raporları). Sadece admin manuel user kayıt yapabilir, açık registration yok."
 
 backend:
+  - task: "User Management System - Enhanced"
+    implemented: false
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementing comprehensive user management: user list/edit/delete, profile management, bulk operations, activity logs, role-based user creation permissions"
   - task: "AI Response Rating System"
     implemented: true
     working: true
